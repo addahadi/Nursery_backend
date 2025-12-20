@@ -5,7 +5,6 @@ import { ParentLoginSchema, ParentSignUpSchema } from '../schemas/parent.schema.
 
 const router = express.Router();
 
-
 router.post('/signup', validate(ParentSignUpSchema), SignUp);
 router.post('/login', validate(ParentLoginSchema), Login);
 
