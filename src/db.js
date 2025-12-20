@@ -3,8 +3,7 @@ import postgres from 'postgres';
 let sql;
 
 if (!global._sql) {
-  const connectionString =
-    'postgresql://postgres.amkfgkrfdoynyjhrvtyh:Missoumadda1234@aws-1-eu-west-3.pooler.supabase.com:6543/postgres';
+  const connectionString = process.env.SUPABASE_DB_URL;
 
   console.log('Using connection string:', connectionString); // debug
 
