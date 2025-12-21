@@ -8,7 +8,6 @@ const router = express.Router();
 router.post('/signup', validate(ParentSignUpSchema), SignUp);
 router.post('/login', validate(ParentLoginSchema), Login);
 
-router.get("/child", viewChildDetails);
-
+router.get('/child', viewChildDetails);
 
 export default router;
