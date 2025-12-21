@@ -92,8 +92,8 @@ export const Login = async (req, res, next) => {
 
     const token = jwt.sign(
       {
-        userId: user.id,
-        role: user.role,
+        userId: user[0].id,
+        role: user[0].role,
       },
       process.env.JWT_SECRET,
       {
@@ -112,6 +112,28 @@ export const Login = async (req, res, next) => {
       },
     });
   } catch (error) {
+    next(error);
+  }
+};
+
+
+export const viewChildDetails = async (req, res, next) => {
+  try {
+    const { parent_id } = req.params;
+    const childDetails = await sql`
+      SELECT * FROM childs WHERE parent_id = ${parent_id}
+    `;
+    if(childDetails.length === 0){
+      return res.status(404).json({
+        message : "No child details found for the given parent ID"
+      })
+    }
+    res.status(200).json({
+      message: 'Child details retrieved successfully',
+      data: childDetails,
+    });
+  } 
+  catch (error) {
     next(error);
   }
 };
