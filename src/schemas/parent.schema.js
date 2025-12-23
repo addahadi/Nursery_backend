@@ -25,3 +25,9 @@ export const ParentLoginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6),
 });
+
+export const requestChildProfileChangeSchema = z.object({
+  child_id: z.uuid(),
+  field: z.enum(['full_name', 'age', 'gender', 'date_of_birth']),
+  new_value: z.string(),
+});

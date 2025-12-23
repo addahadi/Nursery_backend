@@ -116,24 +116,166 @@ export const Login = async (req, res, next) => {
   }
 };
 
-
 export const viewChildDetails = async (req, res, next) => {
   try {
     const { parent_id } = req.params;
     const childDetails = await sql`
       SELECT * FROM childs WHERE parent_id = ${parent_id}
     `;
-    if(childDetails.length === 0){
+    if (childDetails.length === 0) {
       return res.status(404).json({
-        message : "No child details found for the given parent ID"
-      })
+        message: 'No child details found for the given parent ID',
+      });
     }
     res.status(200).json({
       message: 'Child details retrieved successfully',
       data: childDetails,
     });
-  } 
-  catch (error) {
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const viewLatestDailyReport = async (req, res, next) => {
+  try {
+    const { parent_id } = req.params;
+
+    const [report] = await sql`
+     SELECT dr.* FROM daily_reports dr
+     JOIN childs c ON dr.child_id = c.child_id
+     WHERE c.parent_id = ${parent_id}
+     ORDER BY dr.report_date DESC
+     LIMIT 1
+    `;
+
+    if (!report) {
+      return res.status(404).json({
+        message: 'No daily report found for the given parent ID',
+      });
+    }
+
+    res.status(200).json({
+      message: 'Latest daily report retrieved successfully',
+      data: report,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const viewLatestAttendanceReport = async (req, res, next) => {
+  try {
+    const { parent_id } = req.params;
+
+    const [attendance] = await sql`
+      SELECT a.* FROM attendance_record a
+      JOIN childs c ON a.child_id = c.child_id
+      WHERE c.parent_id = ${parent_id}
+      ORDER BY a.attendance_date DESC
+      LIMIT 1
+    `;
+
+    if (!attendance) {
+      return res.status(404).json({
+        message: 'No attendance report found for the given parent ID',
+      });
+    }
+    res.status(200).json({
+      message: 'Latest attendance report retrieved successfully',
+      data: attendance,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const requestChildProfileChange = async (req, res, next) => {
+  const parentId = req.user.id;
+  const { childId } = req.params;
+  const { field, newValue } = req.body;
+
+  try {
+    const [child] = await sql`
+      SELECT * FROM children
+      WHERE child_id = ${childId}
+      AND parent_id = ${parentId}
+    `;
+
+    if (!child) {
+      return res.status(404).json({ error: 'Child not found' });
+    }
+
+    await sql`
+      INSERT INTO child_profile_change_requests
+      (child_id, field_name, old_value, new_value, requested_by)
+      VALUES (
+        ${childId},
+        ${field},
+        ${child[field]},
+        ${newValue},
+        ${parentId}
+      )
+    `;
+
+    res.status(200).json({ message: 'Change request submitted for admin approval' });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const viewAttendanceReports = async (req, res, next) => {
+  try {
+    const { parent_id } = req.params;
+
+    const attendanceReports = await sql`
+      SELECT 
+        DATE_TRUNC('month', a.created_at) AS month,
+        json_agg(a ORDER BY a.created_at DESC) AS reports
+      FROM attendance_record a
+      JOIN childs c ON a.child_id = c.child_id
+      WHERE c.parent_id = ${parent_id}
+      GROUP BY month
+      ORDER BY month DESC
+    `;
+
+    if (attendanceReports.length === 0) {
+      return res.status(404).json({
+        message: 'No attendance reports found for the given parent ID',
+      });
+    }
+
+    return res.status(200).json(attendanceReports);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const viewDailyReports = async (req, res, next) => {
+  try {
+    const { parent_id } = req.params;
+    const page = parseInt(req.query.page) || 1;
+
+    const limit = 5;
+    const offset = (page - 1) * limit;
+
+    const reports = await sql`
+     SELECT dr.* FROM daily_reports dr
+     JOIN childs c ON dr.child_id = c.child_id
+     WHERE c.parent_id = ${parent_id}
+     LIMIT ${limit} OFFSET ${offset}
+    `;
+
+    if (reports.length === 0) {
+      return res.status(404).json({
+        message: 'No daily reports found for the given parent ID',
+      });
+    }
+
+    res.status(200).json({
+      message: 'Daily reports retrieved successfully',
+      data: reports,
+    });
+  } catch (error) {
     next(error);
   }
 };
