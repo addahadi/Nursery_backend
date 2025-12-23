@@ -58,3 +58,40 @@ ${behavoir},
 ${general_notes}
 )`;
 };
+
+/**
+ * إضافة media لنشاط من طرف الأستاذ
+ */
+export const addActivityMedia= async({
+teacherId,
+activityid,
+name,
+file_path,
+description,
+date,
+classroomid,
+})=>{
+// 1️⃣ تحقق أن النشاط تابع للأستاذ
+const activity = await sql`
+SELECT id 
+FROM activity
+WHERE id = ${activityid}
+AND teacherid = ${teacherId}`;
+if (activity.length ===0){
+  throw new Error('forbidden')
+}
+  // 2️⃣ إدخال media في DB
+await sql `
+INSERT INTO activity_media(
+name,
+file_path,
+description,
+date,
+classroomId,
+) VALUES(
+ ${name},
+ ${file_path},
+ ${description},
+ ${date},
+ ${classroomId})`;
+};

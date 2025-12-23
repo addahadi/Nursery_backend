@@ -2,8 +2,8 @@ import sql from '../db.js';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { useReducer } from 'react';
-import { es } from 'zod/locales';
-//import teacherService from '../service/teacher.service.js';
+import { ca, es } from 'zod/locales';
+import * as  teacherService from '../service/teacher.service.js';
 
 export const Login = async (req, res, next) => {
   const body = req.body;
@@ -72,4 +72,30 @@ export const createChildReport = async (req, res) => {
   } catch (err) {
     next(error);
   }
+};
+/**
+ * Controller لإضافة media
+ */
+export const addActivityMedia = async(req,res,next )=>{
+try{
+
+await teacherService.addActivityMedia({
+name : req.name,
+file_path : req.file_path,
+description: req.description,
+date : req.date,
+classroomId : req.classroomId
+});
+res.status(201).json({message:'Activity media added successfully'});
+
+
+}catch(err){
+  next(error);
+}
+
+
+
+
+
+
 };
