@@ -56,7 +56,7 @@ export const viewChildrenList = async (req, res) => {
     const children = await teacherService.getChildrenByTeacher(teacherId);
     res.json(children);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    next(error);
   }
 };
 
@@ -70,6 +70,6 @@ export const createChildReport = async (req, res) => {
     });
     res.status(201).json({ message: 'Report created ' });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    next(error);
   }
 };
