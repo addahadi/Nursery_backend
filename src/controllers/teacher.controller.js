@@ -2,6 +2,8 @@ import sql from '../db.js';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { useReducer } from 'react';
+import { es } from 'zod/locales';
+//import teacherService from '../service/teacher.service.js';
 
 export const Login = async (req, res, next) => {
   const body = req.body;
@@ -13,9 +15,7 @@ export const Login = async (req, res, next) => {
         message: ' you dont have a compte in oure web site',
       });
     }
-    const isPasswordValid = body.password === user[0].password_hash;
-
-    //await bcrypt.compare(body.password, user[0].password_hash);
+    const isPasswordValid = await bcrypt.compare(body.password, user[0].password_hash);
     if (!isPasswordValid) {
       return res.status(401).json({
         message: 'Invalid email or password',
@@ -45,5 +45,31 @@ export const Login = async (req, res, next) => {
     });
   } catch (err) {
     next(error);
+  }
+};
+
+// 1️⃣ مشاهدة قائمة الأطفال
+
+export const viewChildrenList = async (req, res) => {
+  try {
+    const teacherId = req.user.id;
+    const children = await teacherService.getChildrenByTeacher(teacherId);
+    res.json(children);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// 3️⃣ رفع تقرير
+export const createChildReport = async (req, res) => {
+  try {
+    const teacherId = req.user.id;
+    await teacherService.createChildReport({
+      teacherId,
+      ...req.body,
+    });
+    res.status(201).json({ message: 'Report created ' });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
 };
