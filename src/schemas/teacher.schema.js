@@ -43,12 +43,89 @@ export const DailyReportSchema = z.object({
 
   general_notes: z.string(),
 });
-//schema for addmedia 
+//schema for addmedia
 
-export const addActivityMediaschema= z.object({
-name : z.string(),
-file_path: z.string().min(1),
-description: z.string().min(10),
- date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Invalid date format, expected YYYY-MM-DD'), // ممكن تختار التاريخ، إلا ما حطاش نديرو اليوم
-classroomId: z.int(),
+export const addActivityMediaschema = z.object({
+  name: z.string(),
+  file_path: z.string().min(1),
+  description: z.string().min(10),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Invalid date format, expected YYYY-MM-DD'), // ممكن تختار التاريخ، إلا ما حطاش نديرو اليوم
+  classroomId: z.int(),
 });
+
+/**
+ * Schema لتحديث حضور طفل
+ * الأستاذ لازم يرسل هذه البيانات فقط
+ */
+
+export const UpdateAttenceSchema = z
+  .object({
+    childName: z.string().min(5),
+    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Invalid date format, expected YYYY-MM-DD'),
+    status: z.enum(['PRESENT', 'ABSETN', 'SICK']),
+
+    checkInTime: z
+      .string()
+      .regex(/^\d{2}:\d{2}$/, 'Invalid time format HH:MM')
+      .optional(),
+
+    checkOutTime: z
+      .string()
+      .regex(/^\d{2}:\d{2}$/, 'Invalid time format HH:MM')
+      .optional(),
+  })
+
+  .superRefine((data, ctx) => {
+    /**
+     * 🔴 الحالة 1: ABSENT
+     * لا يُسمح بإرسال أوقات
+     */
+    if (data.status === 'ABSENT') {
+      if (data.checkInTime || data.checkOutTime) {
+        ctx.addIssue({
+          path: ['checkInTime'],
+          message: 'Absent child cannot have chek-in or check-out ',
+        });
+      }
+    }
+
+    /**
+     * 🟢 الحالة 2: PRESENT
+     * لازم checkInTime,checkoutTime
+     */
+    if (data.status === 'PRESENT') {
+      if (!data.checkInTime) {
+        ctx.addIssue({
+          path: ['checkInTime'],
+          message: 'checkInTime is required whern status is PRESENT',
+        });
+      }
+
+      if (!data.checkOutTime) {
+        ctx.addIssue({
+          path: ['checkOutTime'],
+          message: 'checkOutTime is required when status is Prestnt ',
+        });
+      }
+    }
+
+    /**
+     * 🟡 SICK
+     * لازم in + out
+     */
+
+    if (data.status === 'SICK') {
+      if (!data.checkInTime) {
+        ctx.addIssue({
+          path: ['checkInTime'],
+          message: 'checkInTime is required when status is Sick',
+        });
+      }
+      if (!data.checkOutTime) {
+        ctx.addIssue({
+          path: ['checkOutTime'],
+          message: 'checkOutTime is required when status is SICk',
+        });
+      }
+    }
+  });

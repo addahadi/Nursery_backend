@@ -3,7 +3,6 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { useReducer } from 'react';
 import { ca, es } from 'zod/locales';
-import * as  teacherService from '../service/teacher.service.js';
 
 export const Login = async (req, res, next) => {
   const body = req.body;
@@ -48,12 +47,23 @@ export const Login = async (req, res, next) => {
   }
 };
 
-// 1️⃣ مشاهدة قائمة الأطفال
+// teacher.controller.js
 
-export const viewChildrenList = async (req, res) => {
+// 1️⃣ مشاهدة قائمة الأطفال
+export const viewChildrenList = async (req, res, next) => {
   try {
     const teacherId = req.user.id;
-    const children = await teacherService.getChildrenByTeacher(teacherId);
+
+    const children = await sql`
+      SELECT
+        id,
+        full_name,
+        age,
+        classrom_id
+      FROM child
+      WHERE teacher_id = ${teacherId}
+    `;
+
     res.json(children);
   } catch (error) {
     next(error);
@@ -61,41 +71,134 @@ export const viewChildrenList = async (req, res) => {
 };
 
 // 3️⃣ رفع تقرير
-export const createChildReport = async (req, res) => {
+export const createChildReport = async (req, res, next) => {
   try {
     const teacherId = req.user.id;
-    await teacherService.createChildReport({
-      teacherId,
-      ...req.body,
-    });
-    res.status(201).json({ message: 'Report created ' });
-  } catch (err) {
+    const { child_id, date, foodIntake, activitylevel, sleepQuality, behavoir, generalNotes } =
+      req.body;
+
+    // 1️⃣ تأكد أن الطفل تابع للأستاذ
+    const child = await sql`
+      SELECT id
+      FROM child
+      WHERE id = ${child_id}
+      AND teacher_id = ${teacherId}
+    `;
+
+    if (child.length === 0) {
+      throw new Error('FORBIDDEN');
+    }
+
+    // 2️⃣ إنشاء التقرير
+    await sql`
+      INSERT INTO report (
+        child_id,
+        report_date,
+        food_intake,
+        activity_level,
+        sleep_quality,
+        behaviour,
+        general_notes
+      ) VALUES (
+        ${child_id},
+        ${date},
+        ${foodIntake},
+        ${activitylevel},
+        ${sleepQuality},
+        ${behavoir},
+        ${generalNotes}
+      )
+    `;
+
+    res.status(201).json({ message: 'Report created' });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Controller لإضافة media
+ */
+export const addActivityMedia = async (req, res, next) => {
+  try {
+    const teacherId = req.user.id;
+    const { activityid, name, file_path, description, date, classroomId } = req.body;
+
+    // 1️⃣ تحقق أن النشاط تابع للأستاذ
+    const activity = await sql`
+      SELECT id
+      FROM activity
+      WHERE id = ${activityid}
+      AND teacherid = ${teacherId}
+    `;
+
+    if (activity.length === 0) {
+      throw new Error('FORBIDDEN');
+    }
+
+    // 2️⃣ إدخال media في DB
+    await sql`
+      INSERT INTO activity_media (
+        name,
+        file_path,
+        description,
+        date,
+        classroomId
+      ) VALUES (
+        ${name},
+        ${file_path},
+        ${description},
+        ${date},
+        ${classroomId}
+      )
+    `;
+
+    res.status(201).json({ message: 'Activity media added successfully' });
+  } catch (error) {
     next(error);
   }
 };
 /**
- * Controller لإضافة media
+ * updateAttendance
+ * الأستاذ يحدّث حضور طفل باستعمال الاسم
  */
-export const addActivityMedia = async(req,res,next )=>{
-try{
+export const updateAttendance = async (req, res, next) => {
+  try {
+    const teacher_id = req.user.id;
+    const { childName, date, status, checkInTime, checkOutTime } = req.body;
 
-await teacherService.addActivityMedia({
-name : req.name,
-file_path : req.file_path,
-description: req.description,
-date : req.date,
-classroomId : req.classroomId
-});
-res.status(201).json({message:'Activity media added successfully'});
+    /**
+     *  نبحث عن الطفل بالاسم
+     * ونتأكد أنه تابع للأستاذ
+     */
 
+    const child = await sql`
+SELECT childId
+FROM Child c
+JOIN Classroom cl on c.classroomId = cl.classroomId
+WHERE c.name = ${childName}
+AND cl.name = ${teacherId};`;
 
-}catch(err){
-  next(error);
-}
+    // إذا الاسم غير موجود أو الطفل ليس تابعًا للأستاذ
+    if (child.length === 0) {
+      throw new Error('CHILD_NOT__FOUND_OR_FORBIDDEN');
+    }
+    //  نستخرج childId (استعمال داخلي فقط)**
+    const childId = child[0].childId;
+    /**
+     *  نحدّث سجل الحضور
+     */
+    await sql`
+UPDATE AttendanceRecord
+SET 
+status ={status},
+checkInTime=${checkInTime},
+checkOutTime=${checkOutTime},
+WHERE childId = ${childId}
+AND data = ${date};`;
 
-
-
-
-
-
+    res.json({ message: 'Attendance updated successfully' });
+  } catch (error) {
+    next(error);
+  }
 };
