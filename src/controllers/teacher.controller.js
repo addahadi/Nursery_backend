@@ -1,9 +1,8 @@
 import sql from '../db.js';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
-import { useReducer } from 'react';
-import { ca, es } from 'zod/locales';
-import * as  teacherService from '../service/teacher.service.js';
+
+import * as teacherService from '../service/teacher.service.js';
 
 export const Login = async (req, res, next) => {
   const body = req.body;
@@ -48,8 +47,6 @@ export const Login = async (req, res, next) => {
   }
 };
 
-// 1️⃣ مشاهدة قائمة الأطفال
-
 export const viewChildrenList = async (req, res) => {
   try {
     const teacherId = req.user.id;
@@ -60,7 +57,6 @@ export const viewChildrenList = async (req, res) => {
   }
 };
 
-// 3️⃣ رفع تقرير
 export const createChildReport = async (req, res) => {
   try {
     const teacherId = req.user.id;
@@ -73,29 +69,22 @@ export const createChildReport = async (req, res) => {
     next(error);
   }
 };
+
 /**
  * Controller لإضافة media
  */
-export const addActivityMedia = async(req,res,next )=>{
-try{
 
-await teacherService.addActivityMedia({
-name : req.name,
-file_path : req.file_path,
-description: req.description,
-date : req.date,
-classroomId : req.classroomId
-});
-res.status(201).json({message:'Activity media added successfully'});
-
-
-}catch(err){
-  next(error);
-}
-
-
-
-
-
-
+export const addActivityMedia = async (req, res, next) => {
+  try {
+    await teacherService.addActivityMedia({
+      name: req.name,
+      file_path: req.file_path,
+      description: req.description,
+      date: req.date,
+      classroomId: req.classroomId,
+    });
+    res.status(201).json({ message: 'Activity media added successfully' });
+  } catch (err) {
+    next(error);
+  }
 };

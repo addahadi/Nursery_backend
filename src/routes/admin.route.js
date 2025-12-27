@@ -1,0 +1,44 @@
+import express from 'express';
+const router = express.Router();
+
+import { requireAdmin } from '../middlewares/admin/requireAdmin.js';
+import { authenticateJWT } from '../middlewares/requireJWT.js';
+import {
+  approveParentRegistration,
+  CreateClassroom,
+  CreateParent,
+  CreateTeacher,
+  getFilterdParentList,
+  rejectParentRegistration,
+  viewClassRooms,
+} from '../controllers/admin.controller.js';
+import { validate } from '../middlewares/validate.js';
+import {
+  CreateClassRoomSchema,
+  CreateParentSchema,
+  CreateTeacherSchema,
+  FilteredParentListSchema,
+} from '../schemas/admin.schema.js';
+
+router.use(authenticateJWT);
+
+router.get(
+  '/filtered-parent-list',
+  requireAdmin,
+  validate(FilteredParentListSchema),
+  getFilterdParentList
+);
+router.get(
+  '/filtered-teacher-list',
+  requireAdmin,
+  validate(FilteredTeacherListSchema),
+  getFilterdTeacherList
+);
+router.post('/parent/:id/approve', requireAdmin, approveParentRegistration);
+router.post('/parent/:id/reject', requireAdmin, rejectParentRegistration);
+router.post('/parent/create', requireAdmin, validate(CreateParentSchema), CreateParent);
+router.post('/teacher/create', requireAdmin, validate(CreateTeacherSchema), CreateTeacher);
+router.post('/classroom/create', requireAdmin, validate(CreateClassRoomSchema), CreateClassroom);
+
+router.get('/classroom', requireAdmin, viewClassRooms);
+export default router;

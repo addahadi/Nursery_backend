@@ -1,6 +1,8 @@
 import sql from '../db.js';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
+import Stripe from 'stripe';
+import stripe from '../config/stripe.js';
 
 export const SignUp = async (req, res, next) => {
   try {
@@ -92,7 +94,7 @@ export const Login = async (req, res, next) => {
 
     const token = jwt.sign(
       {
-        userId: user[0].id,
+        id: user[0].user_id,
         role: user[0].role,
       },
       process.env.JWT_SECRET,
@@ -105,10 +107,10 @@ export const Login = async (req, res, next) => {
       message: 'Login successful',
       token,
       user: {
-        id: user.id,
-        full_name: user.full_name,
-        email: user.email,
-        role: user.role,
+        id: user[0].user_id,
+        full_name: user[0].full_name,
+        email: user[0].email,
+        role: user[0].role,
       },
     });
   } catch (error) {
@@ -118,7 +120,7 @@ export const Login = async (req, res, next) => {
 
 export const viewChildDetails = async (req, res, next) => {
   try {
-    const { parent_id } = req.params;
+    const parent_id = req.user.id;
     const childDetails = await sql`
       SELECT * FROM childs WHERE parent_id = ${parent_id}
     `;
@@ -138,7 +140,7 @@ export const viewChildDetails = async (req, res, next) => {
 
 export const viewLatestDailyReport = async (req, res, next) => {
   try {
-    const { parent_id } = req.params;
+    const parent_id = req.user.id;
 
     const [report] = await sql`
      SELECT dr.* FROM daily_reports dr
@@ -191,30 +193,19 @@ export const viewLatestAttendanceReport = async (req, res, next) => {
 
 export const requestChildProfileChange = async (req, res, next) => {
   const parentId = req.user.id;
-  const { childId } = req.params;
+  const childId = req.verified_child_id;
   const { field, newValue } = req.body;
 
   try {
     const [child] = await sql`
-      SELECT * FROM children
+      SELECT ${field} FROM children
       WHERE child_id = ${childId}
-      AND parent_id = ${parentId}
     `;
-
-    if (!child) {
-      return res.status(404).json({ error: 'Child not found' });
-    }
 
     await sql`
       INSERT INTO child_profile_change_requests
       (child_id, field_name, old_value, new_value, requested_by)
-      VALUES (
-        ${childId},
-        ${field},
-        ${child[field]},
-        ${newValue},
-        ${parentId}
-      )
+      VALUES (${childId}, ${field}, ${child[field]}, ${newValue}, ${parentId})
     `;
 
     res.status(200).json({ message: 'Change request submitted for admin approval' });
@@ -225,8 +216,7 @@ export const requestChildProfileChange = async (req, res, next) => {
 
 export const viewAttendanceReports = async (req, res, next) => {
   try {
-    const { parent_id } = req.params;
-
+    const parent_id = req.user.id;
     const attendanceReports = await sql`
       SELECT 
         DATE_TRUNC('month', a.created_at) AS month,
@@ -252,7 +242,7 @@ export const viewAttendanceReports = async (req, res, next) => {
 
 export const viewDailyReports = async (req, res, next) => {
   try {
-    const { parent_id } = req.params;
+    const parent_id = req.user.id;
     const page = parseInt(req.query.page) || 1;
 
     const limit = 5;
@@ -275,6 +265,58 @@ export const viewDailyReports = async (req, res, next) => {
       message: 'Daily reports retrieved successfully',
       data: reports,
     });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const viewProgressReports = async (req, res, next) => {
+  const parent_id = req.user.id;
+  const page = parseInt(req.query.page) || 1;
+
+  const limit = 5;
+  const offset = (page - 1) * limit;
+
+  try {
+    const progressReports = await sql`
+      SELECT pr.* FROM progress_reports pr
+      JOIN childs c ON pr.child_id = c.child_id
+      WHERE c.parent_id = ${parent_id}
+      ORDER BY pr.report_date DESC
+      LIMIT ${limit} OFFSET ${offset}
+    `;
+    if (progressReports.length === 0) {
+      return res.status(404).json({
+        message: 'No progress reports found for the given parent ID',
+      });
+    }
+
+    res.status(200).json({
+      message: 'Progress reports retrieved successfully',
+      data: progressReports,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const createCheckoutSession = async (req, res, next) => {
+  const parentId = req.user.id;
+  try {
+    const [parent] = await sql`
+      SELECT stripe_customer_id, status
+      FROM parents
+      WHERE parent_id = ${parentId}
+    `;
+    const session = await stripe.checkout.sessions.create({
+      mode: 'subscription',
+      customer: parent.stripe_customer_id,
+      line_items: [{ price: process.env.STRIPE_PRICE_ID, quantity: 1 }],
+      success_url: 'http://localhost:3000/success',
+      cancel_url: 'http://localhost:3000/cancel',
+    });
+
+    res.json({ url: session.url });
   } catch (error) {
     next(error);
   }

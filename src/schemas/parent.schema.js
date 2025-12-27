@@ -15,7 +15,7 @@ export const ParentSignUpSchema = z.object({
   }),
   documents: z.array(
     z.object({
-      document_type: z.string(),
+      document_type: z.enum(['birth_certificate', 'medical_form']),
       file_url: z.string().url(),
     })
   ),

@@ -43,12 +43,12 @@ export const DailyReportSchema = z.object({
 
   general_notes: z.string(),
 });
-//schema for addmedia 
+//schema for addmedia
 
-export const addActivityMediaschema= z.object({
-name : z.string(),
-file_path: z.string().min(1),
-description: z.string().min(10),
- date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Invalid date format, expected YYYY-MM-DD'), // ممكن تختار التاريخ، إلا ما حطاش نديرو اليوم
-classroomId: z.int(),
+export const addActivityMediaschema = z.object({
+  name: z.string(),
+  file_path: z.string().min(1),
+  description: z.string().min(10),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Invalid date format, expected YYYY-MM-DD'), // ممكن تختار التاريخ، إلا ما حطاش نديرو اليوم
+  classroomId: z.int(),
 });

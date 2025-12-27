@@ -1,3 +1,5 @@
+import sql from '../../db.js';
+
 export const requireParent = ({ status } = {}) => {
   return async (req, res, next) => {
     try {
