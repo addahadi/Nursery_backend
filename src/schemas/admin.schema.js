@@ -44,3 +44,9 @@ export const CreateTeacherSchema = z.object({
   password: z.string().min(6),
   phone: z.string().min(10).max(15),
 });
+
+
+export const getPaymentsListSchema = z.object({
+  status: z.enum(['paid', 'canceled','past_due']).optional(),
+  page: z.string().regex(/^\d+$/).optional(),
+});

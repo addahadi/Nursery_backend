@@ -85,7 +85,7 @@ export const stripeWebhook = async (req, res) => {
         await sql`
           UPDATE subscriptions
           SET
-            status = 'unpaid',
+            status = 'past_due',
             updated_at = NOW()
           WHERE stripe_subscription_id = ${invoice.subscription}
         `;
@@ -102,7 +102,7 @@ export const stripeWebhook = async (req, res) => {
         await sql`
           UPDATE subscriptions
           SET
-            status = 'unpaid',
+            status = 'canceled',
             current_period_end = NOW(),
             updated_at = NOW()
           WHERE stripe_subscription_id = ${subscription.id}

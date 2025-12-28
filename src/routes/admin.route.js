@@ -9,6 +9,7 @@ import {
   CreateParent,
   CreateTeacher,
   getFilterdParentList,
+  getPaymentsList,
   rejectParentRegistration,
   viewClassRooms,
 } from '../controllers/admin.controller.js';
@@ -18,9 +19,11 @@ import {
   CreateParentSchema,
   CreateTeacherSchema,
   FilteredParentListSchema,
+  getPaymentsListSchema,
 } from '../schemas/admin.schema.js';
 
 router.use(authenticateJWT);
+
 
 router.get(
   '/filtered-parent-list',
@@ -28,12 +31,14 @@ router.get(
   validate(FilteredParentListSchema),
   getFilterdParentList
 );
+
 router.get(
   '/filtered-teacher-list',
   requireAdmin,
   validate(FilteredTeacherListSchema),
   getFilterdTeacherList
 );
+
 router.post('/parent/:id/approve', requireAdmin, approveParentRegistration);
 router.post('/parent/:id/reject', requireAdmin, rejectParentRegistration);
 router.post('/parent/create', requireAdmin, validate(CreateParentSchema), CreateParent);
@@ -41,4 +46,7 @@ router.post('/teacher/create', requireAdmin, validate(CreateTeacherSchema), Crea
 router.post('/classroom/create', requireAdmin, validate(CreateClassRoomSchema), CreateClassroom);
 
 router.get('/classroom', requireAdmin, viewClassRooms);
+router.get('/payments' , requireAdmin , validate(getPaymentsListSchema) ,getPaymentsList);
+
+
 export default router;

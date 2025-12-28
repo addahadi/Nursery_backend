@@ -321,3 +321,45 @@ export const createCheckoutSession = async (req, res, next) => {
     next(error);
   }
 };
+
+
+
+
+
+export const getMyInformation = async (req, res, next) => {
+  const parentId = req.user.id
+
+  try {
+    const [parent] = await sql`
+      SELECT 
+        p.*,
+        u.full_name,
+        u.email,
+        u.phone,
+        u.created_at,
+        s.id AS subscription_id,
+        s.stripe_subscription_id,
+        s.stripe_customer_id,
+        s.status AS subscription_status,
+        s.current_period_start,
+        s.current_period_end
+      FROM parents p
+      JOIN users u ON p.parent_id = u.user_id
+      LEFT JOIN subscriptions s ON p.parent_id = s.parent_id
+      WHERE p.parent_id = ${parentId}
+    `;
+
+    if (!parent) {
+      return res.status(404).json({
+        message: 'Parent not found',
+      });
+    }
+    res.status(200).json({
+      message : "",
+      data : parent
+    })
+  }
+  catch(error){
+    next(error)
+  }
+}

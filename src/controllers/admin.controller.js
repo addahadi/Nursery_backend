@@ -1,3 +1,4 @@
+
 export const approveParentRegistration = async (req, res, next) => {
   const { id } = req.params;
   try {
@@ -399,6 +400,58 @@ export const viewClassRooms = async (req, res, next) => {
       message: 'Classrooms retrieved successfully',
       data: results,
       totalCount: results.length,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+
+export const getPaymentsList = async (req, res, next) => {
+  const { status } = req.query;
+  const page = parseInt(req.query.page) || 1;
+  const limit = 10;
+  const offset = (page - 1) * limit;
+
+  try {
+    const statusCondition = status && status !== 'all'
+      ? sql`AND s.status = ${status}`
+      : sql``;
+
+    const results = await sql`
+      SELECT 
+        s.id,
+        s.stripe_subscription_id AS invoice_id,
+        u.full_name AS family_name,
+        s.stripe_price_id AS amount,
+        s.current_period_end AS due_date,
+        s.current_period_start AS paid_date,
+        s.status,
+        'Credit Card' AS payment_method,
+        COUNT(*) OVER() AS total_count
+      FROM subscriptions s
+      JOIN parents p ON s.parent_id = p.parent_id
+      JOIN users u ON p.parent_id = u.user_id
+      WHERE TRUE
+      ${statusCondition}
+      ORDER BY s.created_at DESC
+      LIMIT ${limit} OFFSET ${offset}
+    `;
+
+    if (results.length === 0) {
+      return res.status(404).json({
+        message: 'No payments found',
+        data: [],
+        totalCount: 0,
+      });
+    }
+
+    const totalCount = results[0].total_count;
+
+    res.status(200).json({
+      message: 'Payments retrieved successfully',
+      data: results,
+      totalCount,
     });
   } catch (error) {
     next(error);
