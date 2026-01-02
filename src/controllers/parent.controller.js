@@ -75,49 +75,6 @@ export const SignUp = async (req, res, next) => {
   }
 };
 
-export const Login = async (req, res, next) => {
-  const body = req.body;
-  try {
-    const user = await sql`
-            SELECT * FROM users WHERE email = ${body.email} AND role = 'parent'`;
-    if (user.length === 0) {
-      return res.status(401).json({
-        message: 'Invalid email or password',
-      });
-    }
-    const isPasswordValid = await bcrypt.compare(body.password, user[0].password_hash);
-    if (!isPasswordValid) {
-      return res.status(401).json({
-        message: 'Invalid email or password',
-      });
-    }
-
-    const token = jwt.sign(
-      {
-        id: user[0].user_id,
-        role: user[0].role,
-      },
-      process.env.JWT_SECRET,
-      {
-        expiresIn: process.env.JWT_EXPIRES_IN || '1d',
-      }
-    );
-
-    return res.status(200).json({
-      message: 'Login successful',
-      token,
-      user: {
-        id: user[0].user_id,
-        full_name: user[0].full_name,
-        email: user[0].email,
-        role: user[0].role,
-      },
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
 export const viewChildDetails = async (req, res, next) => {
   try {
     const parent_id = req.user.id;
@@ -312,8 +269,8 @@ export const createCheckoutSession = async (req, res, next) => {
       mode: 'subscription',
       customer: parent.stripe_customer_id,
       line_items: [{ price: process.env.STRIPE_PRICE_ID, quantity: 1 }],
-      success_url: 'http://localhost:3000/success',
-      cancel_url: 'http://localhost:3000/cancel',
+      success_url: 'http://localhost:5173/payment/success',
+      cancel_url: 'http://localhost:5173/payment/cancel',
     });
 
     res.json({ url: session.url });
@@ -322,12 +279,8 @@ export const createCheckoutSession = async (req, res, next) => {
   }
 };
 
-
-
-
-
 export const getMyInformation = async (req, res, next) => {
-  const parentId = req.user.id
+  const parentId = req.user.id;
 
   try {
     const [parent] = await sql`
@@ -355,11 +308,11 @@ export const getMyInformation = async (req, res, next) => {
       });
     }
     res.status(200).json({
-      message : "",
-      data : parent
-    })
+      message: '',
+      data: parent,
+    });
+  } catch (error) {
+    next(error);
   }
-  catch(error){
-    next(error)
-  }
-}
+};
+

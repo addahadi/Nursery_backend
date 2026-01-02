@@ -1,9 +1,17 @@
+import sql from '../db.js';
+import jwt from 'jsonwebtoken'; // ← ADD THIS LINE!
+import bcrypt from 'bcrypt';
+import stripe from '../config/stripe.js';
+import { sendParentApprovalEmail } from '../config/createEmail.js';
 
 export const approveParentRegistration = async (req, res, next) => {
   const { id } = req.params;
   try {
     const [parent] = await sql`
-        SELECT * FROM parents WHERE parent_id = ${id}
+        SELECT users.* , p.status 
+        FROM users  
+        JOIN parents p ON p.parent_id = users.user_id
+        WHERE users.user_id = ${id}
         `;
     if (!parent) {
       return res.status(404).json({
@@ -25,6 +33,11 @@ export const approveParentRegistration = async (req, res, next) => {
     await sql`
         UPDATE parents SET status = 'APPROVED_AWAITING_PAYMENT', stripe_customer_id = ${customer.id} WHERE parent_id = ${id}
         `;
+
+    await sendParentApprovalEmail({
+      email: parent.email,
+      fullName: parent.full_name,
+    });
 
     res.status(200).json({
       message: 'Parent registration approved successfully',
@@ -65,52 +78,62 @@ export const rejectParentRegistration = async (req, res, next) => {
 };
 
 export const getFilterdParentList = async (req, res, next) => {
-  const { status } = req.query;
-  const page = parseInt(req.query.page) || 1;
+  const { status, page } = req.query;
+  const pageNum = parseInt(page) || 1;
   const limit = 10;
-  const offset = (page - 1) * limit;
+  const offset = (pageNum - 1) * limit;
+
   try {
-    sql.begin(async (client) => {
+    await sql.begin(async (client) => {
       const results = await client`
-                SELECT 
-                    parents.*,
-                    users.name,
-                    users.email,
-                    users.phone,
-                    users.created_at,
-                    COUNT(*) OVER() AS total_count
-                FROM parents
-                JOIN users ON parents.parent_id = users.user_id
-                WHERE ${status ? sql`parents.status = ${status}` : sql`TRUE`}
-                ORDER BY parents.created_at DESC
-                LIMIT ${limit} OFFSET ${offset}
-                `;
+        SELECT 
+          parents.*,
+          users.full_name,
+          users.email,
+          users.phone,
+          users.created_at,
+          COUNT(*) OVER() AS total_count
+        FROM parents
+        JOIN users ON parents.parent_id = users.user_id
+        WHERE ${status ? client`parents.status = ${status}` : client`TRUE`}
+        ORDER BY users.created_at DESC
+        LIMIT ${limit} OFFSET ${offset}
+      `;
 
       if (results.length === 0) {
-        return res.status(403).json({
+        return res.status(404).json({
           message: 'No parents found with the given criteria.',
         });
       }
 
-      const totalCount = results.length > 0 ? results[0].total_count : 0;
+      const totalCount = results[0].total_count;
       const parentIds = results.map((r) => r.parent_id);
+
       const children =
         parentIds.length > 0
-          ? await client`
-                SELECT * FROM children 
-                WHERE parent_id = ANY(${parentIds})
-                `
+          ? await client`SELECT * FROM childs WHERE parent_id = ANY(${parentIds})`
+          : [];
+
+      const childIds = children.map((c) => c.child_id);
+      const docs =
+        childIds.length > 0
+          ? await client`SELECT * FROM documents WHERE child_id = ANY(${childIds})`
           : [];
 
       const parents = results.map((parent) => ({
         ...parent,
-        children: children.filter((child) => child.parent_id === parent.parent_id),
+        children: children
+          .filter((child) => child.parent_id === parent.parent_id)
+          .map((child) => ({
+            ...child,
+            documents: docs.filter((doc) => doc.child_id === child.child_id),
+          })),
       }));
 
       res.status(200).json({
         data: parents,
         totalCount,
-        message: 'Filtered parent list fetched successfully',
+        message: 'Filtered parent list with children and documents fetched successfully',
       });
     });
   } catch (error) {
@@ -406,7 +429,6 @@ export const viewClassRooms = async (req, res, next) => {
   }
 };
 
-
 export const getPaymentsList = async (req, res, next) => {
   const { status } = req.query;
   const page = parseInt(req.query.page) || 1;
@@ -414,9 +436,7 @@ export const getPaymentsList = async (req, res, next) => {
   const offset = (page - 1) * limit;
 
   try {
-    const statusCondition = status && status !== 'all'
-      ? sql`AND s.status = ${status}`
-      : sql``;
+    const statusCondition = status && status !== 'all' ? sql`AND s.status = ${status}` : sql``;
 
     const results = await sql`
       SELECT 

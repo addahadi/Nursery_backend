@@ -5,14 +5,12 @@ import {
   TeacherLoginSchema,
 } from '../schemas/teacher.schema.js';
 import { validate } from '../middlewares/validate.js';
-import { addActivityMedia, Login } from '../controllers/teacher.controller.js';
+import { addActivityMedia } from '../controllers/teacher.controller.js';
 import { viewChildDetails } from '../controllers/parent.controller.js';
 
 import { createChildReport } from '../controllers/teacher.controller.js';
 
 const router = express.Router();
-
-router.post('/login', validate(TeacherLoginSchema), Login);
 
 // مشاهدة الأطفال
 router.get('/children', viewChildDetails);

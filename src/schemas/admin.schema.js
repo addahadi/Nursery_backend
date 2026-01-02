@@ -46,7 +46,21 @@ export const CreateTeacherSchema = z.object({
 });
 
 
+
+export const ValidateUserIdSchema = z.object({
+  id: z.string().uuid(),
+});
+
+
 export const getPaymentsListSchema = z.object({
   status: z.enum(['paid', 'canceled','past_due']).optional(),
   page: z.string().regex(/^\d+$/).optional(),
+});
+
+
+
+
+export const AdminLoginSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(6),
 });
