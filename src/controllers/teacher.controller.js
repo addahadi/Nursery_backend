@@ -59,4 +59,129 @@ export const viewChildrenList = async (req, res, next) => {
       WHERE teacher_id = ${teacherId}
     `;
 
-    res.json(
+    res.json(children);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * 📝 إنشاء تقرير
+ */
+export const createChildReport = async (req, res, next) => {
+  try {
+    const teacherId = req.user.id;
+    const {
+      child_id,
+      date,
+      food_intake,
+      activity_level,
+      sleep_quality,
+      behaviour,
+      general_notes,
+    } = req.body;
+
+    const child = await sql`
+      SELECT id FROM child
+      WHERE id = ${child_id}
+      AND teacher_id = ${teacherId}
+    `;
+
+    if (child.length === 0) {
+      throw new Error('FORBIDDEN');
+    }
+
+    await sql`
+      INSERT INTO report (
+        child_id,
+        report_date,
+        food_intake,
+        activity_level,
+        sleep_quality,
+        behaviour,
+        general_notes,
+        status
+      ) VALUES (
+        ${child_id},
+        ${date},
+        ${food_intake},
+        ${activity_level},
+        ${sleep_quality},
+        ${behaviour},
+        ${general_notes},
+        'PENDING'
+      )
+    `;
+
+    res.status(201).json({ message: 'Report created' });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * 📸 إضافة media
+ */
+export const addActivityMedia = async (req, res, next) => {
+  try {
+    const teacherId = req.user.id;
+    const { activityId, name, file_path, description, date, classroomId } =
+      req.body;
+
+    const activity = await sql`
+      SELECT id FROM activity
+      WHERE id = ${activityId}
+      AND teacher_id = ${teacherId}
+    `;
+
+    if (activity.length === 0) {
+      throw new Error('FORBIDDEN');
+    }
+
+    await sql`
+      INSERT INTO activity_media
+      (name, file_path, description, date, classroom_id)
+      VALUES
+      (${name}, ${file_path}, ${description}, ${date}, ${classroomId})
+    `;
+
+    res.status(201).json({ message: 'Media added' });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * ✅ تحديث الحضور
+ */
+export const updateAttendance = async (req, res, next) => {
+  try {
+    const teacherId = req.user.id;
+    const { childName, date, status, checkInTime, checkOutTime } = req.body;
+
+    const child = await sql`
+      SELECT c.id
+      FROM child c
+      WHERE c.full_name = ${childName}
+      AND c.teacher_id = ${teacherId}
+    `;
+
+    if (child.length === 0) {
+      throw new Error('CHILD_NOT_FOUND');
+    }
+
+    await sql`
+      UPDATE attendance
+      SET
+        status = ${status},
+        check_in_time = ${checkInTime},
+        check_out_time = ${checkOutTime}
+      WHERE child_id = ${child[0].id}
+      AND attendance_date = ${date}
+    `;
+
+    res.json({ message: 'Attendance updated' });
+  } catch (error) {
+    next(error);
+  }
+};
