@@ -129,3 +129,30 @@ export const UpdateAttenceSchema = z
       }
     }
   });
+
+
+
+
+//schema for SubmitDailyReportSchema
+
+export const SubmitDailyReportSchema = z.object({
+  food_intake: z.object({
+    type: z.string(),      // breakfast | lunch | snack
+    opinion: z.string(),
+    food: z.string(),
+  }),
+
+  activity_level: z
+    .array(z.string())
+    .min(1)
+    .max(6),
+
+  sleep_quality: z.object({
+    startTime: z.string(), // HH:mm
+    endTime: z.string(),   // HH:mm
+    sleptWell: z.boolean(),
+  }),
+
+  behaviour: z.string(),
+  general_notes: z.string(),
+});
