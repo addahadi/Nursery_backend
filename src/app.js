@@ -5,6 +5,7 @@ import errorHandler from './middlewares/error.js';
 import teacherRouter from './routes/teacher.route.js';
 import adminRouter from './routes/admin.route.js';
 import authRouter from './routes/auth.route.js';
+import statRouter from './routes/stat.route.js';
 import { stripeWebhook } from './config/stripeWebhook.js';
 import { Login } from './controllers/auth.controller.js';
 import { validate } from './middlewares/validate.js';
@@ -22,6 +23,7 @@ app.use(
 app.use(express.json());
 
 
+app.use("/stats",statRouter)
 app.use('/auth', authRouter);
 app.use('/parent', parentRouter);
 app.use('/teacher', teacherRouter);

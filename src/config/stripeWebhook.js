@@ -82,6 +82,42 @@ export const stripeWebhook = async (req, res) => {
         const invoice = event.data.object;
 
         await sql.begin(async (sql) => {
+          const [subscriptionRow] = await sql`
+            SELECT id, parent_id
+            FROM subscriptions
+            WHERE stripe_subscription_id = ${invoice.subscription}
+          `;
+
+          // ✅ STORE REVENUE
+          await sql`
+            INSERT INTO invoices (
+              parent_id,
+              subscription_id,
+              stripe_invoice_id,
+              stripe_charge_id,
+              amount_paid,
+              currency,
+              status,
+              period_start,
+              period_end,
+              paid_at
+            )
+            VALUES (
+              ${subscriptionRow.parent_id},
+              ${subscriptionRow.id},
+              ${invoice.id},
+              ${invoice.charge},
+              ${invoice.amount_paid},
+              ${invoice.currency},
+              'paid',
+              to_timestamp(${invoice.period_start}),
+              to_timestamp(${invoice.period_end}),
+              to_timestamp(${invoice.status_transitions.paid_at})
+            )
+            ON CONFLICT (stripe_invoice_id) DO NOTHING
+          `;
+
+          // ✅ KEEP SUBSCRIPTION ACTIVE
           await sql`
             UPDATE subscriptions
             SET
@@ -94,18 +130,14 @@ export const stripeWebhook = async (req, res) => {
 
           await sql`
             UPDATE parents
-            SET
-              status = 'ACTIVE',
-              updated_at = NOW()
-            WHERE parent_id = (
-              SELECT parent_id
-              FROM subscriptions
-              WHERE stripe_subscription_id = ${invoice.subscription}
-            )
+            SET status = 'ACTIVE', updated_at = NOW()
+            WHERE parent_id = ${subscriptionRow.parent_id}
           `;
         });
 
         break;
+
+
       }
 
       // ====================================================

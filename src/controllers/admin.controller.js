@@ -243,7 +243,7 @@ export const CreateTeacher = async (req, res, next) => {
           INSERT INTO teachers (teacher_id, status)
           VALUES (${teacher_id}, ${TeacherInfo.status})
         `;
-      
+
       res.status(201).json({
         message: 'Teacher created successfully',
         teacher_id: teacher_id,
@@ -425,7 +425,7 @@ export const viewClassRooms = async (req, res, next) => {
               ORDER BY c.created_at DESC
             `;
 
-      console.log(classrooms)
+      console.log(classrooms);
       if (classrooms.length === 0) {
         return res.status(404).json({
           message: 'No classrooms found',
@@ -465,13 +465,12 @@ export const viewClassRooms = async (req, res, next) => {
           created_at: classroom.created_at,
         };
       });
-      console.log(classRoomsWithChildren)
+      console.log(classRoomsWithChildren);
       res.status(200).json({
         message: 'Classrooms retrieved successfully',
         data: classRoomsWithChildren,
         totalCount: classRoomsWithChildren.length,
       });
-
     });
   } catch (error) {
     next(error);
@@ -485,25 +484,31 @@ export const getPaymentsList = async (req, res, next) => {
   const offset = (page - 1) * limit;
 
   try {
-    const statusCondition = status && status !== 'all' ? sql`AND s.status = ${status}` : sql``;
+    const statusCondition = status && status !== 'all' ? sql`AND i.status = ${status}` : sql``;
 
     const results = await sql`
       SELECT 
-        s.id,
-        s.stripe_subscription_id AS invoice_id,
-        u.full_name AS family_name,
-        s.stripe_price_id AS amount,
-        s.current_period_end AS due_date,
-        s.current_period_start AS paid_date,
-        s.status,
-        'Credit Card' AS payment_method,
+        i.id,
+        i.stripe_invoice_id AS invoice_number,
+        u.full_name AS parent_name,
+        i.amount_paid AS amount,
+        i.currency,
+        i.period_end AS due_date,
+        i.paid_at AS payment_date,
+        i.period_start AS subscription_start,
+        i.status,
+        CASE 
+          WHEN i.stripe_charge_id IS NOT NULL THEN 'credit_card'
+          ELSE 'bank_transfer'
+        END AS payment_method,
         COUNT(*) OVER() AS total_count
-      FROM subscriptions s
-      JOIN parents p ON s.parent_id = p.parent_id
-      JOIN users u ON p.parent_id = u.user_id
+      FROM invoices i
+      JOIN subscriptions s ON i.subscription_id = s.id
+      JOIN parents pr ON s.parent_id = pr.parent_id
+      JOIN users u ON pr.parent_id = u.user_id
       WHERE TRUE
       ${statusCondition}
-      ORDER BY s.created_at DESC
+      ORDER BY i.created_at DESC
       LIMIT ${limit} OFFSET ${offset}
     `;
 
@@ -512,15 +517,33 @@ export const getPaymentsList = async (req, res, next) => {
         message: 'No payments found',
         data: [],
         totalCount: 0,
+        currentPage: page,
+        totalPages: 0,
       });
     }
 
-    const totalCount = results[0].total_count;
+    const totalCount = parseInt(results[0].total_count);
+    const totalPages = Math.ceil(totalCount / limit);
+
+    // Format the data for frontend
+    const formattedData = results.map((row) => ({
+      id: row.id,
+      invoiceNumber: row.invoice_number || `INV-${String(row.id).padStart(3, '0')}`,
+      parentName: row.parent_name, // Changed from familyName
+      amount: row.amount,
+      currency: row.currency,
+      dueDate: row.due_date,
+      paymentDate: row.payment_date,
+      status: row.status,
+      paymentMethod: row.payment_method === 'credit_card' ? 'بطاقة ائتمان' : 'تحويل بنكي',
+    }));
 
     res.status(200).json({
       message: 'Payments retrieved successfully',
-      data: results,
+      data: formattedData,
       totalCount,
+      currentPage: page,
+      totalPages,
     });
   } catch (error) {
     next(error);
