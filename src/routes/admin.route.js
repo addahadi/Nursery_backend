@@ -8,6 +8,7 @@ import {
   CreateClassroom,
   CreateParent,
   CreateTeacher,
+  editTeacher,
   getFilterdParentList,
   getFilterdTeacherList,
   getPaymentsList,
@@ -20,9 +21,11 @@ import {
   CreateClassRoomSchema,
   CreateParentSchema,
   CreateTeacherSchema,
+  EditTeacherSchema,
   FilteredParentListSchema,
   FilteredTeacherListSchema,
   getPaymentsListSchema,
+  ValidateTeacherIdSchema,
   ValidateUserIdSchema,
 } from '../schemas/admin.schema.js';
 
@@ -42,10 +45,28 @@ router.get(
   getFilterdTeacherList
 );
 
-router.put('/parent/:id/approve', requireAdmin , validate(ValidateUserIdSchema , "params"), approveParentRegistration);
-router.put('/parent/:id/reject', requireAdmin , validate(ValidateUserIdSchema , "params"), rejectParentRegistration);
+router.put(
+  '/parent/:id/approve',
+  requireAdmin,
+  validate(ValidateUserIdSchema, 'params'),
+  approveParentRegistration
+);
+router.put(
+  '/parent/:id/reject',
+  requireAdmin,
+  validate(ValidateUserIdSchema, 'params'),
+  rejectParentRegistration
+);
 router.post('/parent/create', requireAdmin, validate(CreateParentSchema), CreateParent);
 router.post('/teacher/create', requireAdmin, validate(CreateTeacherSchema), CreateTeacher);
+router.put(
+  '/teacher/:id',
+  requireAdmin,
+  validate(ValidateUserIdSchema, 'params'),
+  validate(EditTeacherSchema),
+  editTeacher
+);
+
 router.post('/classroom/create', requireAdmin, validate(CreateClassRoomSchema), CreateClassroom);
 
 router.get('/classroom', requireAdmin, viewClassRooms);
