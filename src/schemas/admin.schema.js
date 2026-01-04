@@ -43,10 +43,31 @@ export const CreateTeacherSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6),
   phone: z.string().min(10).max(15),
+  status: z.enum(['ACTIVE', 'UNACTIVE']),
+});
+
+export const EditTeacherSchema = z.object({
+  full_name: z.string().min(2).max(100).optional(),
+  email: z.string().email().optional(),
+  phone: z.string().min(10).max(15).optional(),
+  status: z.enum(['ACTIVE', 'UNACTIVE']).optional(),
 });
 
 
+export const ValidateTeacherIdSchema = z.object({
+  id: z.uuid()
+})
+
+export const ValidateUserIdSchema = z.object({
+  id: z.string().uuid(),
+});
+
 export const getPaymentsListSchema = z.object({
-  status: z.enum(['paid', 'canceled','past_due']).optional(),
+  status: z.enum(['paid', 'canceled', 'past_due']).optional(),
   page: z.string().regex(/^\d+$/).optional(),
+});
+
+export const AdminLoginSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(6),
 });

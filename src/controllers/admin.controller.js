@@ -1,9 +1,17 @@
+import sql from '../db.js';
+import jwt from 'jsonwebtoken'; // ← ADD THIS LINE!
+import bcrypt from 'bcrypt';
+import stripe from '../config/stripe.js';
+import { sendParentApprovalEmail } from '../config/createEmail.js';
 
 export const approveParentRegistration = async (req, res, next) => {
   const { id } = req.params;
   try {
     const [parent] = await sql`
-        SELECT * FROM parents WHERE parent_id = ${id}
+        SELECT users.* , p.status 
+        FROM users  
+        JOIN parents p ON p.parent_id = users.user_id
+        WHERE users.user_id = ${id}
         `;
     if (!parent) {
       return res.status(404).json({
@@ -25,6 +33,11 @@ export const approveParentRegistration = async (req, res, next) => {
     await sql`
         UPDATE parents SET status = 'APPROVED_AWAITING_PAYMENT', stripe_customer_id = ${customer.id} WHERE parent_id = ${id}
         `;
+
+    await sendParentApprovalEmail({
+      email: parent.email,
+      fullName: parent.full_name,
+    });
 
     res.status(200).json({
       message: 'Parent registration approved successfully',
@@ -65,52 +78,62 @@ export const rejectParentRegistration = async (req, res, next) => {
 };
 
 export const getFilterdParentList = async (req, res, next) => {
-  const { status } = req.query;
-  const page = parseInt(req.query.page) || 1;
+  const { status, page } = req.query;
+  const pageNum = parseInt(page) || 1;
   const limit = 10;
-  const offset = (page - 1) * limit;
+  const offset = (pageNum - 1) * limit;
+
   try {
-    sql.begin(async (client) => {
+    await sql.begin(async (client) => {
       const results = await client`
-                SELECT 
-                    parents.*,
-                    users.name,
-                    users.email,
-                    users.phone,
-                    users.created_at,
-                    COUNT(*) OVER() AS total_count
-                FROM parents
-                JOIN users ON parents.parent_id = users.user_id
-                WHERE ${status ? sql`parents.status = ${status}` : sql`TRUE`}
-                ORDER BY parents.created_at DESC
-                LIMIT ${limit} OFFSET ${offset}
-                `;
+        SELECT 
+          parents.*,
+          users.full_name,
+          users.email,
+          users.phone,
+          users.created_at,
+          COUNT(*) OVER() AS total_count
+        FROM parents
+        JOIN users ON parents.parent_id = users.user_id
+        WHERE ${status ? client`parents.status = ${status}` : client`TRUE`}
+        ORDER BY users.created_at DESC
+        LIMIT ${limit} OFFSET ${offset}
+      `;
 
       if (results.length === 0) {
-        return res.status(403).json({
+        return res.status(404).json({
           message: 'No parents found with the given criteria.',
         });
       }
 
-      const totalCount = results.length > 0 ? results[0].total_count : 0;
+      const totalCount = results[0].total_count;
       const parentIds = results.map((r) => r.parent_id);
+
       const children =
         parentIds.length > 0
-          ? await client`
-                SELECT * FROM children 
-                WHERE parent_id = ANY(${parentIds})
-                `
+          ? await client`SELECT * FROM childs WHERE parent_id = ANY(${parentIds})`
+          : [];
+
+      const childIds = children.map((c) => c.child_id);
+      const docs =
+        childIds.length > 0
+          ? await client`SELECT * FROM documents WHERE child_id = ANY(${childIds})`
           : [];
 
       const parents = results.map((parent) => ({
         ...parent,
-        children: children.filter((child) => child.parent_id === parent.parent_id),
+        children: children
+          .filter((child) => child.parent_id === parent.parent_id)
+          .map((child) => ({
+            ...child,
+            documents: docs.filter((doc) => doc.child_id === child.child_id),
+          })),
       }));
 
       res.status(200).json({
         data: parents,
         totalCount,
-        message: 'Filtered parent list fetched successfully',
+        message: 'Filtered parent list with children and documents fetched successfully',
       });
     });
   } catch (error) {
@@ -198,6 +221,7 @@ export const CreateTeacher = async (req, res, next) => {
       email: body.email,
       password: hashedPassword,
       phone: body.phone,
+      status: body.status,
     };
 
     await sql.begin(async (client) => {
@@ -217,13 +241,13 @@ export const CreateTeacher = async (req, res, next) => {
 
       await client`
           INSERT INTO teachers (teacher_id, status)
-          VALUES (${teacher_id}, 'PENDING_REVIEW')
+          VALUES (${teacher_id}, ${TeacherInfo.status})
         `;
-    });
 
-    res.status(201).json({
-      message: 'Teacher created successfully',
-      teacher_id: teacher_id,
+      res.status(201).json({
+        message: 'Teacher created successfully',
+        teacher_id: teacher_id,
+      });
     });
   } catch (error) {
     next(error);
@@ -231,7 +255,7 @@ export const CreateTeacher = async (req, res, next) => {
 };
 
 export const getFilterdTeacherList = async (req, res, next) => {
-  const { status } = req.query;
+  const { status, classroom } = req.query;
   const page = parseInt(req.query.page) || 1;
   const limit = 10;
   const offset = (page - 1) * limit;
@@ -244,10 +268,14 @@ export const getFilterdTeacherList = async (req, res, next) => {
             users.email,
             users.phone,
             users.created_at,
+            c.name as classroom_name,
+            c.id as classroom_id,
             COUNT(*) OVER() AS total_count
           FROM teachers
           JOIN users ON teachers.teacher_id = users.user_id
+          LEFT JOIN classrooms c ON c.teacher_id = teachers.teacher_id
           WHERE ${status ? sql`teachers.status = ${status}` : sql`TRUE`}
+          ${classroom ? sql`AND c.name = ${classroom}` : sql``}
           ORDER BY users.created_at DESC
           LIMIT ${limit} OFFSET ${offset}
         `;
@@ -269,6 +297,50 @@ export const getFilterdTeacherList = async (req, res, next) => {
       page,
       totalPages: Math.ceil(totalCount / limit),
     });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const editTeacher = async (req, res, next) => {
+  const { id } = req.params;
+  const { full_name, email, phone, status } = req.body;
+
+  try {
+    await sql.begin(async (client) => {
+      // Check if teacher exists
+      const [teacher] = await client`SELECT * FROM teachers WHERE teacher_id = ${id}`;
+      if (!teacher) {
+        return res.status(404).json({ message: 'Teacher not found' });
+      }
+
+      const userUpdates = [];
+      const userValues = [];
+      if (full_name !== undefined) {
+        userUpdates.push('full_name = $' + (userUpdates.length + 1));
+        userValues.push(full_name);
+      }
+      if (email !== undefined) {
+        userUpdates.push('email = $' + (userUpdates.length + 1));
+        userValues.push(email);
+      }
+      if (phone !== undefined) {
+        userUpdates.push('phone = $' + (userUpdates.length + 1));
+        userValues.push(phone);
+      }
+      if (userUpdates.length > 0) {
+        userValues.push(id);
+        const userQuery = `UPDATE users SET ${userUpdates.join(', ')} WHERE user_id = $${userUpdates.length + 1}`;
+        await client.unsafe(userQuery, userValues);
+      }
+
+      // Update teachers table
+      if (status !== undefined) {
+        await client`UPDATE teachers SET status = ${status} WHERE teacher_id = ${id}`;
+      }
+    });
+
+    res.status(200).json({ message: 'Teacher updated successfully' });
   } catch (error) {
     next(error);
   }
@@ -317,7 +389,7 @@ export const CreateClassroom = async (req, res, next) => {
             classroom_id IS NULL
             AND age >= ${minAge}
             AND age <= ${maxAge}
-          ORDER BY age ASC, created_at ASC
+          ORDER BY age ASC
           LIMIT ${classroom.capacity}
         )
         UPDATE childs
@@ -337,7 +409,7 @@ export const CreateClassroom = async (req, res, next) => {
 
 export const viewClassRooms = async (req, res, next) => {
   try {
-    const results = await sql.begin(async (client) => {
+    await sql.begin(async (client) => {
       const classrooms = await client`
               SELECT 
                 c.id,
@@ -353,6 +425,7 @@ export const viewClassRooms = async (req, res, next) => {
               ORDER BY c.created_at DESC
             `;
 
+      console.log(classrooms);
       if (classrooms.length === 0) {
         return res.status(404).json({
           message: 'No classrooms found',
@@ -392,20 +465,17 @@ export const viewClassRooms = async (req, res, next) => {
           created_at: classroom.created_at,
         };
       });
-
-      return classRoomsWithChildren;
-    });
-
-    res.status(200).json({
-      message: 'Classrooms retrieved successfully',
-      data: results,
-      totalCount: results.length,
+      console.log(classRoomsWithChildren);
+      res.status(200).json({
+        message: 'Classrooms retrieved successfully',
+        data: classRoomsWithChildren,
+        totalCount: classRoomsWithChildren.length,
+      });
     });
   } catch (error) {
     next(error);
   }
 };
-
 
 export const getPaymentsList = async (req, res, next) => {
   const { status } = req.query;
@@ -414,27 +484,31 @@ export const getPaymentsList = async (req, res, next) => {
   const offset = (page - 1) * limit;
 
   try {
-    const statusCondition = status && status !== 'all'
-      ? sql`AND s.status = ${status}`
-      : sql``;
+    const statusCondition = status && status !== 'all' ? sql`AND i.status = ${status}` : sql``;
 
     const results = await sql`
       SELECT 
-        s.id,
-        s.stripe_subscription_id AS invoice_id,
-        u.full_name AS family_name,
-        s.stripe_price_id AS amount,
-        s.current_period_end AS due_date,
-        s.current_period_start AS paid_date,
-        s.status,
-        'Credit Card' AS payment_method,
+        i.id,
+        i.stripe_invoice_id AS invoice_number,
+        u.full_name AS parent_name,
+        i.amount_paid AS amount,
+        i.currency,
+        i.period_end AS due_date,
+        i.paid_at AS payment_date,
+        i.period_start AS subscription_start,
+        i.status,
+        CASE 
+          WHEN i.stripe_charge_id IS NOT NULL THEN 'credit_card'
+          ELSE 'bank_transfer'
+        END AS payment_method,
         COUNT(*) OVER() AS total_count
-      FROM subscriptions s
-      JOIN parents p ON s.parent_id = p.parent_id
-      JOIN users u ON p.parent_id = u.user_id
+      FROM invoices i
+      JOIN subscriptions s ON i.subscription_id = s.id
+      JOIN parents pr ON s.parent_id = pr.parent_id
+      JOIN users u ON pr.parent_id = u.user_id
       WHERE TRUE
       ${statusCondition}
-      ORDER BY s.created_at DESC
+      ORDER BY i.created_at DESC
       LIMIT ${limit} OFFSET ${offset}
     `;
 
@@ -443,15 +517,33 @@ export const getPaymentsList = async (req, res, next) => {
         message: 'No payments found',
         data: [],
         totalCount: 0,
+        currentPage: page,
+        totalPages: 0,
       });
     }
 
-    const totalCount = results[0].total_count;
+    const totalCount = parseInt(results[0].total_count);
+    const totalPages = Math.ceil(totalCount / limit);
+
+    // Format the data for frontend
+    const formattedData = results.map((row) => ({
+      id: row.id,
+      invoiceNumber: row.invoice_number || `INV-${String(row.id).padStart(3, '0')}`,
+      parentName: row.parent_name, // Changed from familyName
+      amount: row.amount,
+      currency: row.currency,
+      dueDate: row.due_date,
+      paymentDate: row.payment_date,
+      status: row.status,
+      paymentMethod: row.payment_method === 'credit_card' ? 'بطاقة ائتمان' : 'تحويل بنكي',
+    }));
 
     res.status(200).json({
       message: 'Payments retrieved successfully',
-      data: results,
+      data: formattedData,
       totalCount,
+      currentPage: page,
+      totalPages,
     });
   } catch (error) {
     next(error);

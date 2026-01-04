@@ -6,6 +6,10 @@ import {
   UpdateAttenceSchema,
 } from '../schemas/teacher.schema.js';
 
+import { addActivityMedia } from '../controllers/teacher.controller.js';
+import { viewChildDetails } from '../controllers/parent.controller.js';
+
+
 import { validate } from '../middlewares/validate.js';
 
 import {
@@ -23,8 +27,6 @@ import {
 import { viewChildDetails } from '../controllers/parent.controller.js';
 
 const router = express.Router();
-
-router.post('/login', validate(TeacherLoginSchema), Login);
 
 // مشاهدة الأطفال
 router.get('/children', viewChildDetails);

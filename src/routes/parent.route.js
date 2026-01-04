@@ -2,7 +2,6 @@ import express from 'express';
 import { validate } from '../middlewares/validate.js';
 import { authenticateJWT } from '../middlewares/requireJWT.js'; // Import this
 import {
-  Login,
   requestChildProfileChange,
   SignUp,
   viewAttendanceReports,
@@ -24,7 +23,6 @@ import { verifyChildOwnership } from '../middlewares/parent/verifyChildOwnerShip
 const router = express.Router();
 
 router.post('/signup', validate(ParentSignUpSchema), SignUp);
-router.post('/login', validate(ParentLoginSchema), Login);
 
 router.use(authenticateJWT);
 
