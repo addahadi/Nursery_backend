@@ -1,3 +1,5 @@
+import jwt from 'jsonwebtoken'; // ← ADD THIS LINE!
+
 export const authenticateJWT = (req, res, next) => {
   const authHeader = req.headers.authorization;
   if (!authHeader)
@@ -11,6 +13,7 @@ export const authenticateJWT = (req, res, next) => {
       return res.status(403).json({
         error: 'Invalid token',
       });
+    console.log('Authenticated user:', user); // ← ADD THIS LINE!
     req.user = user;
     next();
   });

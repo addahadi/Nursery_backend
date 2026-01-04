@@ -15,7 +15,7 @@ export const ParentSignUpSchema = z.object({
   }),
   documents: z.array(
     z.object({
-      document_type: z.string(),
+      document_type: z.enum(['birth_certificate', 'medical_form']),
       file_url: z.string().url(),
     })
   ),
@@ -24,4 +24,10 @@ export const ParentSignUpSchema = z.object({
 export const ParentLoginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6),
+});
+
+export const requestChildProfileChangeSchema = z.object({
+  child_id: z.uuid(),
+  field: z.enum(['full_name', 'age', 'gender', 'date_of_birth']),
+  new_value: z.string(),
 });

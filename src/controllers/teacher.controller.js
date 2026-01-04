@@ -49,8 +49,9 @@ export const Login = async (req, res, next) => {
 
 // teacher.controller.js
 
-// 1️⃣ مشاهدة قائمة الأطفال
-export const viewChildrenList = async (req, res, next) => {
+
+export const viewChildrenList = async (req, res) => {
+
   try {
     const teacherId = req.user.id;
 

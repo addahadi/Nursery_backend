@@ -11,7 +11,9 @@ export const validate = (schema, property = 'body') => {
         })),
       });
     }
-    req[property] = result.data;
+    if (property !== 'query') {
+      req[property] = result.data;
+    }
     next();
   };
 };
