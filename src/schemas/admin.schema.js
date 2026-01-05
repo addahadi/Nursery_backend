@@ -49,7 +49,7 @@ export const FilteredTeacherListSchema = z.object({
 });
 
 export const CreateTeacherSchema = z.object({
-  full_name: z.string().min(2).max(100),
+  name: z.string().min(2).max(100),
   email: z.string().email(),
   password: z.string().min(6),
   phone: z.string().min(10).max(15),
@@ -57,7 +57,7 @@ export const CreateTeacherSchema = z.object({
 });
 
 export const EditTeacherSchema = z.object({
-  full_name: z.string().min(2).max(100).optional(),
+  name: z.string().min(2).max(100).optional(),
   email: z.string().email().optional(),
   phone: z.string().min(10).max(15).optional(),
   status: z.enum(['ACTIVE', 'UNACTIVE']).optional(),
