@@ -8,9 +8,9 @@ export const getClassroomStats = async (req, res, next) => {
         (SELECT COUNT(*) FROM classrooms) AS total_rooms,
         (SELECT COUNT(*) FROM childs WHERE classroom_id IS NOT NULL) AS total_enrolled,
         (SELECT COUNT(*) FROM teachers WHERE status = 'ACTIVE') AS total_teachers,
-        (SELECT SUM(capacity) - COUNT(childs.child_id) 
+        (SELECT COALESCE(SUM(capacity), 0) - COALESCE(COUNT(childs.child_id), 0)
          FROM classrooms 
-         LEFT JOIN childs ON classrooms.id = childs.classroom_id
+         LEFT JOIN childs ON classrooms.classroom_id = childs.classroom_id
         ) AS spots_available
     `;
 
@@ -27,7 +27,6 @@ export const getClassroomStats = async (req, res, next) => {
     next(error);
   }
 };
-
 
 
 export const getTeacherStats = async (req, res, next) => {
