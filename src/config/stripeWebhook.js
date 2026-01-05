@@ -61,32 +61,27 @@ export const stripeWebhook = async (req, res) => {
         await sql.begin(async (sql) => {
           // Insert or update subscription
           await sql`
-            INSERT INTO subscriptions (
-              parent_id,
-              stripe_customer_id,
-              stripe_subscription_id,
-              stripe_price_id,
-              status,
-              current_period_start,
-              current_period_end
-            )
-            VALUES (
-              ${parent.parent_id},
-              ${session.customer},
-              ${subscription.id},
-              ${priceId},
-              ${subscription.status},
-              to_timestamp(${startTs}),
-              to_timestamp(${endTs})
-            )
-            ON CONFLICT (stripe_subscription_id)
-            DO UPDATE SET
-              stripe_price_id = EXCLUDED.stripe_price_id,
-              status = EXCLUDED.status,
-              current_period_start = EXCLUDED.current_period_start,
-              current_period_end = EXCLUDED.current_period_end,
-              updated_at = NOW()
-          `;
+              INSERT INTO subscriptions (
+                parent_id,
+                stripe_customer_id,
+                stripe_subscription_id,
+                stripe_price_id,
+                status,
+                current_period_start,
+                current_period_end
+              )
+              VALUES (
+                ${parent.parent_id},
+                ${subscription.customer},
+                ${subscription.id},
+                ${priceId},
+                ${subscription.status},
+                ${subscription.current_period_start ? to_timestamp(subscription.current_period_start) : null},
+                ${subscription.current_period_end ? to_timestamp(subscription.current_period_end) : null}
+              )
+              ON CONFLICT (stripe_subscription_id) DO NOTHING
+            `;
+          
 
           // Update parent status if active
           const newStatus = subscription.status === 'active' ? 'ACTIVE' : 'SUSPENDED';
