@@ -22,6 +22,7 @@ import {
   CreateClassRoomSchema,
   CreateParentSchema,
   CreateTeacherSchema,
+  EditClassRoomSchema,
   EditTeacherSchema,
   FilteredParentListSchema,
   FilteredTeacherListSchema,
@@ -70,7 +71,7 @@ router.put(
 
 
 router.post('/classroom/create', requireAdmin, validate(CreateClassRoomSchema), CreateClassroom);
-router.put("/classroom/:id" , requireAdmin , validate(EditClassRoomSchema))
+router.put("/classroom/:id" , requireAdmin , validate(EditClassRoomSchema) , EditClassRoom)
 
 router.get('/classroom', requireAdmin, viewClassRooms);
 router.get('/payments', requireAdmin, validate(getPaymentsListSchema, 'query'), getPaymentsList);

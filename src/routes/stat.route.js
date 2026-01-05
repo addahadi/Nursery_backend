@@ -13,6 +13,6 @@ router.get('/parent/attendance', requireParent, getMyChildrenAttendanceStats);
 router.get("/admin/recent-activities" , getRecentActivities)
 router.get("/admin/pending-actions" , getPendingActions)
 router.get("/admin/dashboard" , getDashboardStats)
-router.get("admin/revenue" , getAdminRevenueStats)
+router.get("/admin/revenue" , getAdminRevenueStats)
 
 export default router
