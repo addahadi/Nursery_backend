@@ -10,7 +10,7 @@ export const stripeWebhook = async (req, res) => {
   // ============================
   try {
     event = stripe.webhooks.constructEvent(
-      req.body, // must be raw, not JSON parsed
+      req.body, // must be raw body
       sig,
       process.env.STRIPE_WEBHOOK_SECRET
     );
@@ -21,6 +21,7 @@ export const stripeWebhook = async (req, res) => {
 
   try {
     switch (event.type) {
+
       // ============================
       // CHECKOUT COMPLETED
       // ============================
@@ -34,63 +35,109 @@ export const stripeWebhook = async (req, res) => {
 
         const subscription = await stripe.subscriptions.retrieve(session.subscription);
 
-        // Safely get parent
+        // Get parent
         const [parent] = await sql`
           SELECT parent_id FROM parents WHERE stripe_customer_id = ${session.customer}
         `;
-
         if (!parent) {
           console.error('Parent not found for customer:', session.customer);
           break;
         }
 
-        const priceId = subscription.items?.data?.[0]?.price?.id;
-        if (!priceId) {
-          console.error('Price ID missing for subscription:', subscription.id);
-          break;
-        }
+        const priceId = subscription.items?.data?.[0]?.price?.id ?? null;
 
-        const startTs = subscription.current_period_start;
-        const endTs = subscription.current_period_end;
+        await sql`
+          INSERT INTO subscriptions (
+            parent_id,
+            stripe_customer_id,
+            stripe_subscription_id,
+            stripe_price_id,
+            status,
+            current_period_start,
+            current_period_end
+          )
+          VALUES (
+            ${parent.parent_id},
+            ${subscription.customer},
+            ${subscription.id},
+            ${priceId},
+            ${subscription.status},
+            ${subscription.current_period_start ? to_timestamp(subscription.current_period_start) : null},
+            ${subscription.current_period_end ? to_timestamp(subscription.current_period_end) : null}
+          )
+          ON CONFLICT (stripe_subscription_id)
+          DO UPDATE SET
+            stripe_price_id = EXCLUDED.stripe_price_id,
+            status = EXCLUDED.status,
+            current_period_start = EXCLUDED.current_period_start,
+            current_period_end = EXCLUDED.current_period_end,
+            updated_at = NOW()
+        `;
 
-        if (!startTs || !endTs) {
-          console.error('Subscription period timestamps missing:', subscription.id);
-          break;
-        }
-
-        await sql.begin(async (sql) => {
-          // Insert or update subscription
-          await sql`
-              INSERT INTO subscriptions (
-                parent_id,
-                stripe_customer_id,
-                stripe_subscription_id,
-                stripe_price_id,
-                status,
-                current_period_start,
-                current_period_end
-              )
-              VALUES (
-                ${parent.parent_id},
-                ${subscription.customer},
-                ${subscription.id},
-                ${priceId},
-                ${subscription.status},
-                ${subscription.current_period_start ? to_timestamp(subscription.current_period_start) : null},
-                ${subscription.current_period_end ? to_timestamp(subscription.current_period_end) : null}
-              )
-              ON CONFLICT (stripe_subscription_id) DO NOTHING
-            `;
-          
-
-          // Update parent status if active
-          const newStatus = subscription.status === 'active' ? 'ACTIVE' : 'SUSPENDED';
+        // Update parent status if subscription is active
+        if (subscription.status === 'active') {
           await sql`
             UPDATE parents
-            SET status = ${newStatus}, updated_at = NOW()
+            SET status = 'ACTIVE', updated_at = NOW()
             WHERE parent_id = ${parent.parent_id}
           `;
-        });
+        }
+
+        break;
+      }
+
+      // ============================
+      // SUBSCRIPTION CREATED
+      // ============================
+      case 'customer.subscription.created': {
+        const subscription = event.data.object;
+
+        const [parent] = await sql`
+          SELECT parent_id FROM parents WHERE stripe_customer_id = ${subscription.customer}
+        `;
+        if (!parent) {
+          console.error('Parent not found for subscription:', subscription.id);
+          break;
+        }
+
+        const priceId = subscription.items?.data?.[0]?.price?.id ?? null;
+
+        await sql`
+          INSERT INTO subscriptions (
+            parent_id,
+            stripe_customer_id,
+            stripe_subscription_id,
+            stripe_price_id,
+            status,
+            current_period_start,
+            current_period_end
+          )
+          VALUES (
+            ${parent.parent_id},
+            ${subscription.customer},
+            ${subscription.id},
+            ${priceId},
+            ${subscription.status},
+            ${subscription.current_period_start ? to_timestamp(subscription.current_period_start) : null},
+            ${subscription.current_period_end ? to_timestamp(subscription.current_period_end) : null}
+          )
+          ON CONFLICT (stripe_subscription_id)
+          DO UPDATE SET
+            stripe_price_id = EXCLUDED.stripe_price_id,
+            status = EXCLUDED.status,
+            current_period_start = EXCLUDED.current_period_start,
+            current_period_end = EXCLUDED.current_period_end,
+            updated_at = NOW()
+        `;
+
+        // Activate parent only if subscription is active
+        if (subscription.status === 'active') {
+          await sql`
+            UPDATE parents
+            SET status = 'ACTIVE', updated_at = NOW()
+            WHERE parent_id = ${parent.parent_id}
+          `;
+        }
 
         break;
       }
@@ -100,14 +147,10 @@ export const stripeWebhook = async (req, res) => {
       // ============================
       case 'customer.subscription.updated': {
         const subscription = event.data.object;
-        const priceId = subscription.items?.data?.[0]?.price?.id;
-        const startTs = subscription.current_period_start;
-        const endTs = subscription.current_period_end;
 
-        if (!priceId || !startTs || !endTs) {
-          console.warn('Subscription update missing required fields:', subscription.id);
-          break;
-        }
+        const priceId = subscription.items?.data?.[0]?.price?.id ?? null;
+        const startTs = subscription.current_period_start ?? null;
+        const endTs = subscription.current_period_end ?? null;
 
         await sql.begin(async (sql) => {
           await sql`
@@ -115,19 +158,16 @@ export const stripeWebhook = async (req, res) => {
             SET
               stripe_price_id = ${priceId},
               status = ${subscription.status},
-              current_period_start = to_timestamp(${startTs}),
-              current_period_end = to_timestamp(${endTs}),
+              current_period_start = ${startTs ? to_timestamp(startTs) : null},
+              current_period_end = ${endTs ? to_timestamp(endTs) : null},
               updated_at = NOW()
             WHERE stripe_subscription_id = ${subscription.id}
           `;
 
           // Update parent status
-          const newStatus =
-            subscription.status === 'active'
-              ? 'ACTIVE'
-              : subscription.status === 'past_due' || subscription.status === 'unpaid'
-              ? 'SUSPENDED'
-              : null;
+          let newStatus = null;
+          if (subscription.status === 'active') newStatus = 'ACTIVE';
+          if (subscription.status === 'past_due' || subscription.status === 'unpaid') newStatus = 'SUSPENDED';
 
           if (newStatus) {
             await sql`
@@ -138,6 +178,34 @@ export const stripeWebhook = async (req, res) => {
               )
             `;
           }
+        });
+
+        break;
+      }
+
+      // ============================
+      // SUBSCRIPTION DELETED
+      // ============================
+      case 'customer.subscription.deleted': {
+        const subscription = event.data.object;
+
+        await sql.begin(async (sql) => {
+          await sql`
+            UPDATE subscriptions
+            SET
+              status = 'canceled',
+              current_period_end = ${subscription.current_period_end ? to_timestamp(subscription.current_period_end) : null},
+              updated_at = NOW()
+            WHERE stripe_subscription_id = ${subscription.id}
+          `;
+
+          await sql`
+            UPDATE parents
+            SET status = 'SUSPENDED', updated_at = NOW()
+            WHERE parent_id = (
+              SELECT parent_id FROM subscriptions WHERE stripe_subscription_id = ${subscription.id}
+            )
+          `;
         });
 
         break;
@@ -155,14 +223,13 @@ export const stripeWebhook = async (req, res) => {
           FROM subscriptions
           WHERE stripe_subscription_id = ${invoice.subscription}
         `;
-
         if (!sub) {
           console.warn('Subscription not found for invoice:', invoice.id);
           break;
         }
 
         const line = invoice.lines?.data?.[0];
-        if (!line || !line.period?.start || !line.period?.end) {
+        if (!line || !line.period) {
           console.warn('Invoice line missing period:', invoice.id);
           break;
         }
@@ -188,12 +255,13 @@ export const stripeWebhook = async (req, res) => {
             ${invoice.amount_paid ?? 0},
             ${invoice.currency ?? 'usd'},
             'paid',
-            to_timestamp(${line.period.start}),
-            to_timestamp(${line.period.end}),
-            to_timestamp(${invoice.status_transitions?.paid_at ?? Math.floor(Date.now()/1000)})
+            ${line.period.start ? to_timestamp(line.period.start) : null},
+            ${line.period.end ? to_timestamp(line.period.end) : null},
+            ${invoice.status_transitions?.paid_at ? to_timestamp(invoice.status_transitions.paid_at) : to_timestamp(Math.floor(Date.now()/1000))}
           )
           ON CONFLICT (stripe_invoice_id) DO NOTHING
         `;
+
         break;
       }
 
@@ -209,36 +277,6 @@ export const stripeWebhook = async (req, res) => {
           SET status = 'past_due', updated_at = NOW()
           WHERE stripe_subscription_id = ${invoice.subscription}
         `;
-        break;
-      }
-
-      // ============================
-      // SUBSCRIPTION CANCELED
-      // ============================
-      case 'customer.subscription.deleted': {
-        const subscription = event.data.object;
-        if (!subscription.current_period_end) break;
-
-        await sql.begin(async (sql) => {
-          await sql`
-            UPDATE subscriptions
-            SET
-              status = 'canceled',
-              current_period_end = to_timestamp(${subscription.current_period_end}),
-              updated_at = NOW()
-            WHERE stripe_subscription_id = ${subscription.id}
-          `;
-
-          await sql`
-            UPDATE parents
-            SET status = 'SUSPENDED', updated_at = NOW()
-            WHERE parent_id = (
-              SELECT parent_id FROM subscriptions
-              WHERE stripe_subscription_id = ${subscription.id}
-            )
-          `;
-        });
-
         break;
       }
 
