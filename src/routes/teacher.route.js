@@ -6,7 +6,6 @@ import {
   UpdateAttenceSchema,
 } from '../schemas/teacher.schema.js';
 
-import { addActivityMedia } from '../controllers/teacher.controller.js';
 import { viewChildDetails } from '../controllers/parent.controller.js';
 
 
@@ -18,13 +17,11 @@ import {
   getChildReportByDate,
   getClassroomOverview,
   getDailyReportsByDate,
-  Login,
   submitChildReport,
   updateAttendance,
   createChildReport
 } from '../controllers/teacher.controller.js';
 
-import { viewChildDetails } from '../controllers/parent.controller.js';
 
 const router = express.Router();
 

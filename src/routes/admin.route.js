@@ -5,7 +5,7 @@ import { requireAdmin } from '../middlewares/admin/requireAdmin.js';
 import { authenticateJWT } from '../middlewares/requireJWT.js';
 import {
   approveParentRegistration,
-  CreateClassroom,
+  createClassRoom,
   CreateParent,
   CreateTeacher,
   EditClassRoom,
@@ -27,7 +27,7 @@ import {
   FilteredParentListSchema,
   FilteredTeacherListSchema,
   getPaymentsListSchema,
-  ValidateTeacherIdSchema,
+  ValidateClassroomIdSchema,
   ValidateUserIdSchema,
 } from '../schemas/admin.schema.js';
 
@@ -70,8 +70,15 @@ router.put(
 );
 
 
-router.post('/classroom/create', requireAdmin, validate(CreateClassRoomSchema), CreateClassroom);
-router.put("/classroom/:id" , requireAdmin , validate(EditClassRoomSchema) , EditClassRoom)
+router.post('/classroom/create', requireAdmin, validate(CreateClassRoomSchema), createClassRoom);
+
+router.put(
+  '/classroom/:id',
+  requireAdmin,
+  validate(ValidateClassroomIdSchema),
+  validate(EditClassRoomSchema),
+  EditClassRoom
+);
 
 router.get('/classroom', requireAdmin, viewClassRooms);
 router.get('/payments', requireAdmin, validate(getPaymentsListSchema, 'query'), getPaymentsList);

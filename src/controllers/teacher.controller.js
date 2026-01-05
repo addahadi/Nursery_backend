@@ -1,8 +1,7 @@
 import sql from '../db.js';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
-import { useReducer } from 'react';
-import { ca, es } from 'zod/locales';
+
 
 export const Login = async (req, res, next) => {
   const body = req.body;

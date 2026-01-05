@@ -1,6 +1,6 @@
 import express from 'express';
 import { requireAdmin } from '../middlewares/admin/requireAdmin.js';
-import { getAdminRevenueStats, getClassroomStats, getDashboardStats, getMyChildrenAttendanceStats, getPaymentStats, getPendingActions, getRecentActivities, getTeacherStats } from '../controllers/stat.controller.js';
+import { getAdminRevenueStats, getClassroomStats, getDashboardStats, getMyChildrenAttendanceStats, getPendingActions, getRecentActivities, getTeacherStats } from '../controllers/stat.controller.js';
 import { requireParent } from '../middlewares/parent/requireParent.js';
 
 

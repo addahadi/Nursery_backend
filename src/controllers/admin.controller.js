@@ -420,6 +420,94 @@ export const EditClassRoom = async (req, res, next) => {
 };
 
 
+
+export const createClassRoom = async (req, res, next) => {
+  const { name, teacherId, capacity, age_group } = req.body;
+
+  try {
+    // Validate required fields
+    if (!name || !teacherId || !capacity) {
+      return res.status(400).json({
+        message: 'Missing required fields: name, teacherId, and capacity are required',
+      });
+    }
+
+    await sql.begin(async (client) => {
+      // Check if teacher exists
+      const [teacher] = await client`
+        SELECT teacher_id FROM teachers WHERE teacher_id = ${teacherId}
+      `;
+
+      if (!teacher) {
+        return res.status(404).json({
+          message: 'Teacher not found',
+        });
+      }
+
+      // Check if teacher is already assigned to a classroom
+      const [existingAssignment] = await client`
+        SELECT classroom_id FROM classrooms WHERE teacher_id = ${teacherId}
+      `;
+
+      if (existingAssignment) {
+        return res.status(400).json({
+          message: 'Teacher is already assigned to another classroom',
+        });
+      }
+
+      // Create the classroom
+      const [newClassroom] = await client`
+        INSERT INTO classrooms (name, teacher_id, capacity)
+        VALUES (${name}, ${teacherId}, ${capacity})
+        RETURNING classroom_id, name, teacher_id, capacity, created_at
+      `;
+
+      // If age_group is provided, assign eligible children
+      if (age_group) {
+        const ages = age_group.match(/\d+/g)?.map(Number);
+
+        if (!ages || ages.length !== 2) {
+          return res.status(400).json({
+            message: 'Invalid age_group format. Expected format: "3-5" or "3 to 5"',
+          });
+        }
+
+        const [minAge, maxAge] = ages;
+
+        await client`
+          WITH eligible_children AS (
+            SELECT child_id
+            FROM childs
+            WHERE
+              classroom_id IS NULL
+              AND age >= ${minAge}
+              AND age <= ${maxAge}
+            ORDER BY age ASC
+            LIMIT ${capacity}
+          )
+          UPDATE childs
+          SET classroom_id = ${newClassroom.classroom_id}
+          WHERE child_id IN (SELECT child_id FROM eligible_children)
+        `;
+      }
+
+      return res.status(201).json({
+        message: 'Classroom created successfully',
+        data: {
+          id: newClassroom.classroom_id,
+          name: newClassroom.name,
+          teacherId: newClassroom.teacher_id,
+          capacity: newClassroom.capacity,
+          createdAt: newClassroom.created_at,
+        },
+      });
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+
 export const viewClassRooms = async (req, res, next) => {
   try {
     await sql.begin(async (client) => {

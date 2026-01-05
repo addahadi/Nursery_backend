@@ -68,6 +68,11 @@ export const ValidateTeacherIdSchema = z.object({
   id: z.uuid()
 })
 
+
+export const ValidateClassroomIdSchema = z.object({
+  id: z.uuid(),
+});
+
 export const ValidateUserIdSchema = z.object({
   id: z.string().uuid(),
 });
