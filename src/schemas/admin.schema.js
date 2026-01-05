@@ -30,7 +30,7 @@ export const CreateClassRoomSchema = z.object({
   name: z.string().min(2).max(100),
   age_group: z.enum(['0-1 year', '1-2 years', '2-3 years', '3-4 years', '4-5 years']),
   capacity: z.number().int().positive().max(50),
-  teacher_name: z.string().min(2).max(100),
+  teacherId: z.string().min(2).max(100),
 });
 
 
@@ -49,7 +49,7 @@ export const FilteredTeacherListSchema = z.object({
 });
 
 export const CreateTeacherSchema = z.object({
-  name: z.string().min(2).max(100),
+  full_name: z.string().min(2).max(100),
   email: z.string().email(),
   password: z.string().min(6),
   phone: z.string().min(10).max(15),
@@ -57,7 +57,7 @@ export const CreateTeacherSchema = z.object({
 });
 
 export const EditTeacherSchema = z.object({
-  name: z.string().min(2).max(100).optional(),
+  full_name: z.string().min(2).max(100).optional(),
   email: z.string().email().optional(),
   phone: z.string().min(10).max(15).optional(),
   status: z.enum(['ACTIVE', 'UNACTIVE']).optional(),
