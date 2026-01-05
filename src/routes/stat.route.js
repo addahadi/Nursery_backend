@@ -2,10 +2,13 @@ import express from 'express';
 import { requireAdmin } from '../middlewares/admin/requireAdmin.js';
 import { getAdminRevenueStats, getClassroomStats, getDashboardStats, getMyChildrenAttendanceStats, getPendingActions, getRecentActivities, getTeacherStats } from '../controllers/stat.controller.js';
 import { requireParent } from '../middlewares/parent/requireParent.js';
+import { authenticateJWT } from '../middlewares/requireJWT.js';
 
 
 const router = express.Router();
 
+
+router.use(authenticateJWT)
 
 router.get("/admin/classroom" , requireAdmin , getClassroomStats)
 router.get("/admin/teacher" , requireAdmin , getTeacherStats)
