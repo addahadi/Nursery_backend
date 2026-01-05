@@ -78,7 +78,7 @@ export const stripeWebhook = async (req, res) => {
         if (subscription.status === 'active') {
           await sql`
             UPDATE parents
-            SET status = 'ACTIVE', updated_at = NOW()
+            SET status = 'ACTIVE'
             WHERE parent_id = ${parent.parent_id}
           `;
         }
@@ -134,7 +134,7 @@ export const stripeWebhook = async (req, res) => {
         if (subscription.status === 'active') {
           await sql`
             UPDATE parents
-            SET status = 'ACTIVE', updated_at = NOW()
+            SET status = 'ACTIVE'
             WHERE parent_id = ${parent.parent_id}
           `;
         }
