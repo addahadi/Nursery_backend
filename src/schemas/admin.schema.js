@@ -33,6 +33,16 @@ export const CreateClassRoomSchema = z.object({
   teacher_name: z.string().min(2).max(100),
 });
 
+
+export const EditClassRoomSchema = z
+  .object({
+    name: z.string().min(2).max(100).optional(),
+    age_group: z.enum(['0-1 year', '1-2 years', '2-3 years', '3-4 years', '4-5 years']).optional(),
+    capacity: z.number().int().positive().max(50).optional(),
+    teacherId: z.number().int().positive().optional(), 
+})
+
+
 export const FilteredTeacherListSchema = z.object({
   status: z.enum(['ACTIVE', 'UNACTIVE']).optional(),
   page: z.string().regex(/^\d+$/).optional(),

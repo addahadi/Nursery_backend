@@ -8,6 +8,7 @@ import {
   CreateClassroom,
   CreateParent,
   CreateTeacher,
+  EditClassRoom,
   editTeacher,
   getFilterdParentList,
   getFilterdTeacherList,
@@ -67,7 +68,9 @@ router.put(
   editTeacher
 );
 
+
 router.post('/classroom/create', requireAdmin, validate(CreateClassRoomSchema), CreateClassroom);
+router.put("/classroom/:id" , requireAdmin , validate(EditClassRoomSchema))
 
 router.get('/classroom', requireAdmin, viewClassRooms);
 router.get('/payments', requireAdmin, validate(getPaymentsListSchema, 'query'), getPaymentsList);
