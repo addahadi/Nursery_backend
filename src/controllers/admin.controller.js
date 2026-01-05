@@ -347,7 +347,6 @@ export const editTeacher = async (req, res, next) => {
 };
 
 
-
 export const EditClassRoom = async (req, res, next) => {
   const { id } = req.params;
   const { name, teacherId, capacity, age_group } = req.body;
@@ -448,19 +447,7 @@ export const createClassRoom = async (req, res, next) => {
         });
       }
 
-      // Check if teacher is already assigned to a classroom
-      const [existingAssignment] = await client`
-        SELECT id FROM classrooms WHERE teacher_id = ${teacherId}
-      `;
 
-      if (existingAssignment) {
-        return res.status(400).json({
-          message: 'Teacher is already assigned to another classroom',
-        });
-      }
-
-      // Create the classroom
-      // Fixed: RETURNING classroom_id -> id
       const [newClassroom] = await client`
         INSERT INTO classrooms (name, teacher_id, capacity)
         VALUES (${name}, ${teacherId}, ${capacity})
