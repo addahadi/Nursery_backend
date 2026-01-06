@@ -176,17 +176,28 @@ export const viewLatestDailyReport = async (req, res, next) => {
   try {
     const parent_id = req.user.id;
 
+    // Fetch the single most recent report for the parent's child
     const [report] = await sql`
-     SELECT dr.* FROM daily_reports dr
-     JOIN childs c ON dr.child_id = c.child_id
-     WHERE c.parent_id = ${parent_id}
-     ORDER BY dr.report_date DESC
-     LIMIT 1
+      SELECT 
+        dr.report_id as id,
+        dr.date,
+        dr.food_intake,
+        dr.activity_level,
+        dr.sleep_quality,
+        dr.behavior,
+        dr.general_notes,
+        c.full_name as child_name
+      FROM daily_report dr
+      JOIN childs c ON dr.child_id = c.child_id
+      WHERE c.parent_id = ${parent_id}
+      ORDER BY dr.date DESC, dr.created_at DESC
+      LIMIT 1
     `;
 
     if (!report) {
       return res.status(404).json({
-        message: 'No daily report found for the given parent ID',
+        message: 'No daily report found',
+        data: null,
       });
     }
 
@@ -198,6 +209,7 @@ export const viewLatestDailyReport = async (req, res, next) => {
     next(error);
   }
 };
+
 
 export const viewLatestAttendanceReport = async (req, res, next) => {
   try {
@@ -251,6 +263,8 @@ export const requestChildProfileChange = async (req, res, next) => {
 export const viewAttendanceReports = async (req, res, next) => {
   try {
     const parent_id = req.user.id;
+
+    // Aggregate attendance records by month
     const attendanceReports = await sql`
       SELECT 
         DATE_TRUNC('month', a.created_at) AS month,
@@ -262,7 +276,7 @@ export const viewAttendanceReports = async (req, res, next) => {
       ORDER BY month DESC
     `;
 
-    if (attendanceReports.length === 0) {
+    if (!attendanceReports || attendanceReports.length === 0) {
       return res.status(404).json({
         message: 'No attendance reports found for the given parent ID',
       });
@@ -273,6 +287,7 @@ export const viewAttendanceReports = async (req, res, next) => {
     next(error);
   }
 };
+
 
 export const viewDailyReports = async (req, res, next) => {
   try {

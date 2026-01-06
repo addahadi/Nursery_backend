@@ -21,10 +21,12 @@ export const ParentSignUpSchema = z.object({
   ),
 });
 
+
 export const ParentLoginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6),
 });
+
 
 export const requestChildProfileChangeSchema = z.object({
   child_id: z.uuid(),

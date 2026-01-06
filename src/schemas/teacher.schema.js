@@ -18,100 +18,46 @@ export const TeacherLoginSchema = z.object({
   password: z.string().min(6),
 });
 
-// schema for teacher create a report
-export const DailyReportSchema = z.object({
+export const AttendanceStatusEnum = z.enum(['present', 'absent', 'sick']);
+
+export const AttendanceSchema = z.object({
+  record_id: z.string().uuid().optional(),
   child_id: z.string().uuid(),
-  content: z.string().min(10),
-  date: z
-    .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Invalid date format, expected YYYY-MM-DD'),
-
-  food_intake: z.object({
-    type: z.string(), // breakfast | lunch | snack
-    opinion: z.string(),
-    food: z.string(),
-  }),
-
-  activity_level: z
-    .array(ActivityEnum)
-    .min(1, 'Select at least one activity')
-    .max(6, 'Too many activities selected'),
-
-  sleep_quality: z.object({
-    startTime: TimeString,
-    endTime: TimeString,
-    sleptWell: z.boolean(),
-  }),
-
-  general_notes: z.string(),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), // ISO Date string (YYYY-MM-DD)
+  status: AttendanceStatusEnum,
+  check_in_time: z.string().nullable(), // Store as "HH:mm"
+  check_out_time: z.string().nullable(), // Store as "HH:mm"
+  created_at: z.string().datetime().optional(),
 });
 
-// schema for add media
-export const addActivityMediaschema = z.object({
-  name: z.string(),
-  file_path: z.string().min(1),
-  description: z.string().min(10),
-  date: z
-    .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Invalid date format, expected YYYY-MM-DD'),
-  classroomId: z.number().int(),
+const ProgressCategorySchema = z.object({
+  level: z.string().min(1), // e.g., "ممتاز", "جيد جداً"
+  score: z.number().min(0).max(100),
+  notes: z.string().optional(),
 });
 
-/**
- * Schema لتحديث حضور طفل
- */
-export const UpdateAttenceSchema = z
-  .object({
-    childName: z.string().min(5),
-    date: z
-      .string()
-      .regex(/^\d{4}-\d{2}-\d{2}$/, 'Invalid date format, expected YYYY-MM-DD'),
-    status: z.enum(['PRESENT', 'ABSENT', 'SICK']),
-    checkInTime: TimeString.optional(),
-    checkOutTime: TimeString.optional(),
-  })
-  .superRefine((data, ctx) => {
-    if (data.status === 'ABSENT') {
-      if (data.checkInTime || data.checkOutTime) {
-        ctx.addIssue({
-          path: ['checkInTime'],
-          message: 'Absent child cannot have check-in or check-out',
-        });
-      }
-    }
-
-    if (data.status === 'PRESENT' || data.status === 'SICK') {
-      if (!data.checkInTime) {
-        ctx.addIssue({
-          path: ['checkInTime'],
-          message: 'checkInTime is required',
-        });
-      }
-      if (!data.checkOutTime) {
-        ctx.addIssue({
-          path: ['checkOutTime'],
-          message: 'checkOutTime is required',
-        });
-      }
-    }
-  });
-
-// schema for submit daily report
-export const SubmitDailyReportSchema = z.object({
-  food_intake: z.object({
-    type: z.string(),
-    opinion: z.string(),
-    food: z.string(),
+export const ProgressReportSchema = z.object({
+  report_id: z.string().uuid().optional(),
+  child_id: z.string().uuid(),
+  period_start: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  period_end: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  levels: z.object({
+    eating: ProgressCategorySchema,
+    sleeping: ProgressCategorySchema,
+    social: ProgressCategorySchema,
+    learning: ProgressCategorySchema,
+    physical: ProgressCategorySchema,
   }),
+  created_at: z.string().datetime().optional(),
+});
 
-  activity_level: z.array(ActivityEnum).min(1).max(6),
-
-  sleep_quality: z.object({
-    startTime: TimeString,
-    endTime: TimeString,
-    sleptWell: z.boolean(),
-  }),
-
-  behaviour: z.string(),
-  general_notes: z.string(),
+export const DailyReportSchema = z.object({
+  child_id: z.string().uuid({ message: 'معرف الطفل غير صحيح' }),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, { message: 'تاريخ غير صحيح' }),
+  // Aligned with your INSERT INTO report statement
+  foodIntake: z.enum(['Poor', 'Fair', 'Good', 'Excellent']),
+  activitylevel: z.enum(['Low', 'Normal', 'High']),
+  sleepQuality: z.enum(['Poor', 'Fair', 'Good']),
+  behavoir: z.string().min(1, { message: 'يجب وصف السلوك' }),
+  generalNotes: z.string().optional(),
 });
