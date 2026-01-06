@@ -276,30 +276,51 @@ export const viewAttendanceReports = async (req, res, next) => {
   }
 };
 
+
+
 export const viewDailyReports = async (req, res, next) => {
   try {
     const parent_id = req.user.id;
     const page = parseInt(req.query.page) || 1;
 
-    const limit = 5;
+    const limit = 10;
     const offset = (page - 1) * limit;
 
+    // Get daily reports for the parent's child
     const reports = await sql`
-     SELECT dr.* FROM daily_reports dr
-     JOIN childs c ON dr.child_id = c.child_id
-     WHERE c.parent_id = ${parent_id}
-     LIMIT ${limit} OFFSET ${offset}
+      SELECT 
+        dr.report_id as id,
+        dr.child_id,
+        dr.date,
+        dr.food_intake,
+        dr.activity_level,
+        dr.sleep_quality,
+        dr.behavior,
+        dr.general_notes,
+        dr.created_at,
+        c.full_name as child_name
+      FROM daily_reports dr
+      JOIN childs c ON dr.child_id = c.child_id
+      WHERE c.parent_id = ${parent_id}
+      ORDER BY dr.date DESC, dr.created_at DESC
+      LIMIT ${limit} OFFSET ${offset}
     `;
 
-    if (reports.length === 0) {
+    if (reports.length === 0 && page === 1) {
       return res.status(404).json({
         message: 'No daily reports found for the given parent ID',
+        data: [],
       });
     }
 
     res.status(200).json({
       message: 'Daily reports retrieved successfully',
       data: reports,
+      pagination: {
+        page,
+        limit,
+        hasMore: reports.length === limit,
+      },
     });
   } catch (error) {
     next(error);
