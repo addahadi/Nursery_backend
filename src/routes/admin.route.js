@@ -13,13 +13,11 @@ import {
   getFilterdParentList,
   getFilterdTeacherList,
   getParentsSubscriptions,
-  getPaymentsList,
   rejectParentRegistration,
   viewClassRooms,
 } from '../controllers/admin.controller.js';
 import { validate } from '../middlewares/validate.js';
 import {
-  AdminLoginSchema,
   CreateClassRoomSchema,
   CreateParentSchema,
   CreateTeacherSchema,
