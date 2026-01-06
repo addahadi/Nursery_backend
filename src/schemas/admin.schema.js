@@ -30,7 +30,7 @@ export const CreateClassRoomSchema = z.object({
   name: z.string().min(2).max(100),
   age_group: z.enum(['0-1 year', '1-2 years', '2-3 years', '3-4 years', '4-5 years']),
   capacity: z.number().int().positive().max(50),
-  teacher_name: z.string().min(2).max(100),
+  teacherId: z.string().min(2).max(100),
 });
 
 

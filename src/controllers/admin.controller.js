@@ -346,13 +346,15 @@ export const editTeacher = async (req, res, next) => {
   }
 };
 
+
 export const EditClassRoom = async (req, res, next) => {
   const { id } = req.params;
   const { name, teacherId, capacity, age_group } = req.body;
 
   try {
     await sql.begin(async (client) => {
-      const [classroom] = await client`SELECT * FROM classrooms WHERE classroom_id = ${id}`;
+      // Fixed: classroom_id -> id
+      const [classroom] = await client`SELECT * FROM classrooms WHERE id = ${id}`;
 
       if (!classroom) {
         return res.status(404).json({ message: 'Classroom not found' });
@@ -378,7 +380,8 @@ export const EditClassRoom = async (req, res, next) => {
 
       if (ClassroomUpdates.length > 0) {
         ClassroomValues.push(id);
-        const classroomQuery = `UPDATE classrooms SET ${ClassroomUpdates.join(', ')} WHERE classroom_id = $${ClassroomUpdates.length + 1}`;
+        // Fixed: classroom_id -> id
+        const classroomQuery = `UPDATE classrooms SET ${ClassroomUpdates.join(', ')} WHERE id = $${ClassroomUpdates.length + 1}`;
         await client.unsafe(classroomQuery, ClassroomValues);
       }
 
@@ -444,22 +447,11 @@ export const createClassRoom = async (req, res, next) => {
         });
       }
 
-      // Check if teacher is already assigned to a classroom
-      const [existingAssignment] = await client`
-        SELECT classroom_id FROM classrooms WHERE teacher_id = ${teacherId}
-      `;
 
-      if (existingAssignment) {
-        return res.status(400).json({
-          message: 'Teacher is already assigned to another classroom',
-        });
-      }
-
-      // Create the classroom
       const [newClassroom] = await client`
         INSERT INTO classrooms (name, teacher_id, capacity)
         VALUES (${name}, ${teacherId}, ${capacity})
-        RETURNING classroom_id, name, teacher_id, capacity, created_at
+        RETURNING id, name, teacher_id, capacity, created_at
       `;
 
       // If age_group is provided, assign eligible children
@@ -474,6 +466,7 @@ export const createClassRoom = async (req, res, next) => {
 
         const [minAge, maxAge] = ages;
 
+        // Fixed: newClassroom.classroom_id -> newClassroom.id
         await client`
           WITH eligible_children AS (
             SELECT child_id
@@ -486,7 +479,7 @@ export const createClassRoom = async (req, res, next) => {
             LIMIT ${capacity}
           )
           UPDATE childs
-          SET classroom_id = ${newClassroom.classroom_id}
+          SET classroom_id = ${newClassroom.id}
           WHERE child_id IN (SELECT child_id FROM eligible_children)
         `;
       }
@@ -494,7 +487,7 @@ export const createClassRoom = async (req, res, next) => {
       return res.status(201).json({
         message: 'Classroom created successfully',
         data: {
-          id: newClassroom.classroom_id,
+          id: newClassroom.id,
           name: newClassroom.name,
           teacherId: newClassroom.teacher_id,
           capacity: newClassroom.capacity,
@@ -506,6 +499,7 @@ export const createClassRoom = async (req, res, next) => {
     next(error);
   }
 };
+
 
 
 export const viewClassRooms = async (req, res, next) => {

@@ -20,6 +20,10 @@ app.use(
   })
 );
 
+
+app.post('/api/webhooks/stripe', express.raw({ type: 'application/json' }), stripeWebhook);
+
+
 app.use(express.json());
 
 
@@ -28,7 +32,6 @@ app.use('/auth', authRouter);
 app.use('/parent', parentRouter);
 app.use('/teacher', teacherRouter);
 app.use('/admin', adminRouter);
-app.post('/api/webhooks/stripe', express.raw({ type: 'application/json' }), stripeWebhook);
 
 app.use(errorHandler);
 
