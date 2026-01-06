@@ -7,9 +7,7 @@ import adminRouter from './routes/admin.route.js';
 import authRouter from './routes/auth.route.js';
 import statRouter from './routes/stat.route.js';
 import { stripeWebhook } from './config/stripeWebhook.js';
-import { Login } from './controllers/auth.controller.js';
-import { validate } from './middlewares/validate.js';
-import { AdminLoginSchema } from './schemas/admin.schema.js';
+
 
 const app = express();
 

@@ -12,6 +12,7 @@ import {
   editTeacher,
   getFilterdParentList,
   getFilterdTeacherList,
+  getParentsSubscriptions,
   getPaymentsList,
   rejectParentRegistration,
   viewClassRooms,
@@ -81,6 +82,6 @@ router.put(
 );
 
 router.get('/classroom', requireAdmin, viewClassRooms);
-router.get('/payments', requireAdmin, validate(getPaymentsListSchema, 'query'), getPaymentsList);
+router.get('/payments', requireAdmin, validate(getPaymentsListSchema, 'query'), getParentsSubscriptions);
 
 export default router;

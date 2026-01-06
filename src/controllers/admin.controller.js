@@ -346,7 +346,6 @@ export const editTeacher = async (req, res, next) => {
   }
 };
 
-
 export const EditClassRoom = async (req, res, next) => {
   const { id } = req.params;
   const { name, teacherId, capacity, age_group } = req.body;
@@ -422,8 +421,6 @@ export const EditClassRoom = async (req, res, next) => {
   }
 };
 
-
-
 export const createClassRoom = async (req, res, next) => {
   const { name, teacherId, capacity, age_group } = req.body;
 
@@ -446,7 +443,6 @@ export const createClassRoom = async (req, res, next) => {
           message: 'Teacher not found',
         });
       }
-
 
       const [newClassroom] = await client`
         INSERT INTO classrooms (name, teacher_id, capacity)
@@ -499,8 +495,6 @@ export const createClassRoom = async (req, res, next) => {
     next(error);
   }
 };
-
-
 
 export const viewClassRooms = async (req, res, next) => {
   try {
@@ -572,44 +566,38 @@ export const viewClassRooms = async (req, res, next) => {
   }
 };
 
-export const getPaymentsList = async (req, res, next) => {
-  const { status } = req.query;
+export const getParentsSubscriptions = async (req, res, next) => {
+  const { status } = req.query; // Filter by subscription status (active, trialing, etc.)
   const page = parseInt(req.query.page) || 1;
   const limit = 10;
   const offset = (page - 1) * limit;
 
   try {
-    const statusCondition = status && status !== 'all' ? sql`AND i.status = ${status}` : sql``;
+    // Filter by subscription status if provided
+    const statusCondition = status && status !== 'all' ? sql`AND s.status = ${status}` : sql``;
 
     const results = await sql`
       SELECT 
-        i.id,
-        i.stripe_invoice_id AS invoice_number,
+        u.user_id as id,
         u.full_name AS parent_name,
-        i.amount_paid AS amount,
-        i.currency,
-        i.period_end AS due_date,
-        i.paid_at AS payment_date,
-        i.period_start AS subscription_start,
-        i.status,
-        CASE 
-          WHEN i.stripe_charge_id IS NOT NULL THEN 'credit_card'
-          ELSE 'bank_transfer'
-        END AS payment_method,
+        u.email,
+        u.phone,
+        s.status AS subscription_status,
+        s.current_period_start,
+        s.current_period_end,
+        s.stripe_subscription_id,
         COUNT(*) OVER() AS total_count
-      FROM invoices i
-      JOIN subscriptions s ON i.subscription_id = s.id
-      JOIN parents pr ON s.parent_id = pr.parent_id
-      JOIN users u ON pr.parent_id = u.user_id
-      WHERE TRUE
+      FROM users u
+      JOIN parents p ON u.user_id = p.parent_id
+      LEFT JOIN subscriptions s ON p.parent_id = s.parent_id
+      WHERE u.role = 'parent'
       ${statusCondition}
-      ORDER BY i.created_at DESC
+      ORDER BY u.created_at DESC
       LIMIT ${limit} OFFSET ${offset}
     `;
 
     if (results.length === 0) {
-      return res.status(404).json({
-        message: 'No payments found',
+      return res.status(200).json({
         data: [],
         totalCount: 0,
         currentPage: page,
@@ -620,21 +608,18 @@ export const getPaymentsList = async (req, res, next) => {
     const totalCount = parseInt(results[0].total_count);
     const totalPages = Math.ceil(totalCount / limit);
 
-    // Format the data for frontend
     const formattedData = results.map((row) => ({
       id: row.id,
-      invoiceNumber: row.invoice_number || `INV-${String(row.id).padStart(3, '0')}`,
-      parentName: row.parent_name, // Changed from familyName
-      amount: row.amount,
-      currency: row.currency,
-      dueDate: row.due_date,
-      paymentDate: row.payment_date,
-      status: row.status,
-      paymentMethod: row.payment_method === 'credit_card' ? 'بطاقة ائتمان' : 'تحويل بنكي',
+      parentName: row.parent_name,
+      email: row.email,
+      phone: row.phone,
+      status: row.subscription_status || 'no_subscription',
+      startDate: row.current_period_start,
+      endDate: row.current_period_end,
+      subscriptionId: row.stripe_subscription_id || 'N/A',
     }));
 
     res.status(200).json({
-      message: 'Payments retrieved successfully',
       data: formattedData,
       totalCount,
       currentPage: page,
