@@ -29,6 +29,7 @@ import {
   ValidateClassroomIdSchema,
   ValidateUserIdSchema,
 } from '../schemas/admin.schema.js';
+import { getWebsiteContent, updateWebsiteContent } from '../controllers/website.controller.js';
 
 router.use(authenticateJWT);
 
@@ -79,6 +80,10 @@ router.put(
   EditClassRoom
 );
 
+
+
+router.get("/website" , getWebsiteContent)
+router.put('/website/:section/:id' , updateWebsiteContent);
 router.get('/classroom', requireAdmin, viewClassRooms);
 router.get('/payments', requireAdmin, validate(getPaymentsListSchema, 'query'), getParentsSubscriptions);
 

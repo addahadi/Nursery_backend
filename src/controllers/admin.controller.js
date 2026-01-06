@@ -629,3 +629,23 @@ export const getParentsSubscriptions = async (req, res, next) => {
     next(error);
   }
 };
+
+
+
+
+
+
+
+
+import sql from '../db.js';
+
+// Validates table names to prevent SQL injection
+const WEBSITE_TABLES = [
+  'features',
+  'activities',
+  'testimonials',
+  'programs',
+  'website_stats',
+  'website_settings'
+];
+
