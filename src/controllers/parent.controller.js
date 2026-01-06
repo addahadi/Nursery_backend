@@ -75,8 +75,6 @@ export const SignUp = async (req, res, next) => {
   }
 };
 
-
-
 export const viewChildDetails = async (req, res, next) => {
   try {
     const parent_id = req.user.id;
@@ -276,8 +274,6 @@ export const viewAttendanceReports = async (req, res, next) => {
   }
 };
 
-
-
 export const viewDailyReports = async (req, res, next) => {
   try {
     const parent_id = req.user.id;
@@ -327,35 +323,7 @@ export const viewDailyReports = async (req, res, next) => {
   }
 };
 
-export const viewProgressReports = async (req, res, next) => {
-  const parent_id = req.user.id;
-  const page = parseInt(req.query.page) || 1;
 
-  const limit = 5;
-  const offset = (page - 1) * limit;
-
-  try {
-    const progressReports = await sql`
-      SELECT pr.* FROM progress_reports pr
-      JOIN childs c ON pr.child_id = c.child_id
-      WHERE c.parent_id = ${parent_id}
-      ORDER BY pr.report_date DESC
-      LIMIT ${limit} OFFSET ${offset}
-    `;
-    if (progressReports.length === 0) {
-      return res.status(404).json({
-        message: 'No progress reports found for the given parent ID',
-      });
-    }
-
-    res.status(200).json({
-      message: 'Progress reports retrieved successfully',
-      data: progressReports,
-    });
-  } catch (error) {
-    next(error);
-  }
-};
 
 export const createCheckoutSession = async (req, res, next) => {
   const parentId = req.user.id;
@@ -416,3 +384,33 @@ export const getMyInformation = async (req, res, next) => {
   }
 };
 
+export const viewProgressReports = async (req, res, next) => {
+  try {
+    const parent_id = req.user.id;
+
+    const reports = await sql`
+      SELECT 
+        pr.report_id,
+        pr.child_id,
+        pr.period_start,
+        pr.period_end,
+        pr.levels,
+        pr.created_at,
+        c.full_name
+      FROM progress_report pr
+      JOIN childs c ON pr.child_id = c.child_id
+      WHERE c.parent_id = ${parent_id}
+      ORDER BY pr.period_start DESC
+    `;
+
+    if (reports.length === 0) {
+      return res.status(404).json({
+        message: 'No progress reports found for the given parent ID',
+      });
+    }
+
+    return res.status(200).json(reports);
+  } catch (error) {
+    next(error);
+  }
+};
