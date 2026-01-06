@@ -75,20 +75,99 @@ export const SignUp = async (req, res, next) => {
   }
 };
 
+
+
 export const viewChildDetails = async (req, res, next) => {
   try {
     const parent_id = req.user.id;
+
+    // Get child details with classroom and teacher info
     const childDetails = await sql`
-      SELECT * FROM childs WHERE parent_id = ${parent_id}
+      SELECT 
+        ch.child_id as id,
+        ch.full_name,
+        ch.age,
+        ch.gender,
+        ch.date_of_birth,
+        ch.classroom_id,
+        c.name as classroom_name,
+        c.teacher_id,
+        u.full_name as teacher_name,
+        u.email as teacher_email,
+        u.phone as teacher_phone
+      FROM childs ch
+      LEFT JOIN classrooms c ON ch.classroom_id = c.id
+      LEFT JOIN teachers t ON c.teacher_id = t.teacher_id
+      LEFT JOIN users u ON t.user_id = u.user_id
+      WHERE ch.parent_id = ${parent_id}
     `;
+
     if (childDetails.length === 0) {
       return res.status(404).json({
         message: 'No child details found for the given parent ID',
       });
     }
+
+    const child = childDetails[0];
+
+    // Get documents for this child
+    const documents = await sql`
+      SELECT 
+        id,
+        child_id,
+        file_url,
+        document_type,
+        created_at
+      FROM documents
+      WHERE child_id = ${child.id}
+      ORDER BY created_at DESC
+    `;
+
+    // Get admin contact info for emergency contacts
+    const adminContact = await sql`
+      SELECT 
+        u.full_name,
+        u.email,
+        u.phone
+      FROM users u
+      WHERE u.role = 'admin'
+      LIMIT 1
+    `;
+
+    // Build emergency contacts array
+    const emergencyContacts = [];
+
+    // Add teacher as emergency contact
+    if (child.teacher_name) {
+      emergencyContacts.push({
+        name: child.teacher_name,
+        relationship: 'المعلمة الرئيسية',
+        phone: child.teacher_phone || 'غير متوفر',
+        email: child.teacher_email || 'غير متوفر',
+        is_primary: true,
+      });
+    }
+
+    // Add admin as emergency contact
+    if (adminContact.length > 0) {
+      emergencyContacts.push({
+        name: adminContact[0].full_name,
+        relationship: 'إدارة الروضة',
+        phone: adminContact[0].phone || 'غير متوفر',
+        email: adminContact[0].email || 'غير متوفر',
+        is_primary: false,
+      });
+    }
+
     res.status(200).json({
       message: 'Child details retrieved successfully',
-      data: childDetails,
+      data: [
+        {
+          ...child,
+          documents: documents,
+          emergency_contacts: emergencyContacts,
+        },
+      ],
     });
   } catch (error) {
     next(error);
