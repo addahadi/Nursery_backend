@@ -107,3 +107,17 @@ export const getMe = async (req, res, next) => {
     next(error);
   }
 };
+
+
+
+
+export const Logout = async (req, res, next) => {
+  try {
+    return res.status(200).json({
+      success: true,
+      message: 'تم تسجيل الخروج بنجاح',
+    });
+  } catch (error) {
+    next(error);
+  }
+};
