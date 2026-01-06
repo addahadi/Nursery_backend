@@ -98,7 +98,7 @@ export const viewChildDetails = async (req, res, next) => {
       FROM childs ch
       LEFT JOIN classrooms c ON ch.classroom_id = c.id
       LEFT JOIN teachers t ON c.teacher_id = t.teacher_id
-      LEFT JOIN users u ON t.user_id = u.user_id
+      LEFT JOIN users u ON t.teacher_id = u.user_id
       WHERE ch.parent_id = ${parent_id}
     `;
 
