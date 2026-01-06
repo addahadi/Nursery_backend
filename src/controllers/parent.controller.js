@@ -299,7 +299,7 @@ export const viewDailyReports = async (req, res, next) => {
         dr.general_notes,
         dr.created_at,
         c.full_name as child_name
-      FROM daily_reports dr
+      FROM daily_report dr
       JOIN childs c ON dr.child_id = c.child_id
       WHERE c.parent_id = ${parent_id}
       ORDER BY dr.date DESC, dr.created_at DESC
