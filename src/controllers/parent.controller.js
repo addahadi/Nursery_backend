@@ -191,7 +191,7 @@ export const viewLatestDailyReport = async (req, res, next) => {
       JOIN childs c ON dr.child_id = c.child_id
       WHERE c.parent_id = ${parent_id}
       ORDER BY dr.date DESC, dr.created_at DESC
-      LIMIT 1
+      LIMIT 1kj
     `;
 
     if (!report) {

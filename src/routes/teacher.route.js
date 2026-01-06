@@ -1,7 +1,6 @@
 import express from 'express';
 import {
   addActivityMediaschema,
-  AttendanceSchema,
   DailyReportSchema,
   TeacherLoginSchema,
   UpdateAttenceSchema,
@@ -13,6 +12,7 @@ import { viewChildDetails } from '../controllers/parent.controller.js';
 import { validate } from '../middlewares/validate.js';
 
 import {
+  addActivityMedia,
   getAttendanceByDate,
   getChildReportByDate,
   getClassroomOverview,
@@ -31,9 +31,17 @@ router.get('/children', viewChildDetails);
 // إنشاء تقرير يومي
 router.post('/daily-report', validate(DailyReportSchema), createChildReport);
 
+// إضافة media لنشاط
+router.post(
+  '/activities/:activityId/media',
+  validate(addActivityMediaschema),
+  addActivityMedia
+);
+
+// تحديث سجل الحضور
 router.put(
   '/attendance',
-  validate(AttendanceSchema),
+  validate(UpdateAttenceSchema),
   updateAttendance
 );
 
@@ -43,7 +51,12 @@ router.get('/daily-report', getDailyReportsByDate);
 // جلب تقرير طفل معيّن في تاريخ معيّن
 router.get('/daily-report/child', getChildReportByDate);
 
-
+// إرسال / إكمال التقرير اليومي
+router.put(
+  '/daily-report/:report_id',
+  validate(submitChildReport),
+  submitChildReport
+);
 
 // جلب الحضور حسب التاريخ
 router.get('/attendance', getAttendanceByDate);
