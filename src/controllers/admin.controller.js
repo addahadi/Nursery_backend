@@ -355,6 +355,62 @@ export const editTeacher = async (req, res, next) => {
   }
 };
 
+
+
+
+export const editAdmin = async (req, res, next) => {
+  const { id } = req.params;
+  const { full_name, email, phone } = req.body;
+
+  try {
+
+    await sql.begin(async (client) => {
+      // Check if teacher exists
+      const [admin] = await client`SELECT * FROM admins WHERE admin_id = ${id}`;
+      if (!admin) {
+        return res.status(404).json({ message: 'admin not found' });
+      }
+
+      const userUpdates = [];
+      const userValues = [];
+
+      
+      if (full_name !== undefined) {
+        userUpdates.push('full_name = $' + (userUpdates.length + 1));
+        userValues.push(full_name);
+      }
+
+      
+      if (email !== undefined) {
+        userUpdates.push('email = $' + (userUpdates.length + 1));
+        userValues.push(email);
+      }
+
+  
+      if (phone !== undefined) {
+        userUpdates.push('phone = $' + (userUpdates.length + 1));
+        userValues.push(phone);
+      }
+
+      
+      if (userUpdates.length > 0) {
+        userValues.push(id);
+        const userQuery = `UPDATE users SET ${userUpdates.join(', ')} WHERE user_id = $${userUpdates.length + 1}`;
+        await client.unsafe(userQuery, userValues);
+      }
+
+
+    });
+
+    res.status(200).json({ message: 'Admin updated successfully' });
+
+  } catch (error) {
+    next(error);
+  }
+};
+
+
+
 export const EditClassRoom = async (req, res, next) => {
   const { id } = req.params;
   const { name, teacherId, capacity, age_group } = req.body;
