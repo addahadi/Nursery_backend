@@ -254,32 +254,41 @@ export const CreateTeacher = async (req, res, next) => {
   }
 };
 
+
 export const getFilterdTeacherList = async (req, res, next) => {
   const { status, classroom } = req.query;
   const page = parseInt(req.query.page) || 1;
   const limit = 10;
   const offset = (page - 1) * limit;
-
+  
   try {
     const results = await sql`
-          SELECT 
-            teachers.*,
-            users.full_name,
-            users.email,
-            users.phone,
-            users.created_at,
-            c.name as classroom_name,
-            c.id as classroom_id,
-            COUNT(*) OVER() AS total_count
-          FROM teachers
-          JOIN users ON teachers.teacher_id = users.user_id
-          LEFT JOIN classrooms c ON c.teacher_id = teachers.teacher_id
-          WHERE ${status ? sql`teachers.status = ${status}` : sql`TRUE`}
-          ${classroom ? sql`AND c.name = ${classroom}` : sql``}
-          ORDER BY users.created_at DESC
-          LIMIT ${limit} OFFSET ${offset}
-        `;
-
+      SELECT 
+        teachers.*,
+        users.full_name,
+        users.email,
+        users.phone,
+        users.created_at,
+        COALESCE(
+          JSON_AGG(
+            JSON_BUILD_OBJECT(
+              'classroom_id', c.id,
+              'classroom_name', c.name
+            )
+          ) FILTER (WHERE c.id IS NOT NULL),
+          '[]'
+        ) as classrooms,
+        COUNT(*) OVER() AS total_count
+      FROM teachers
+      JOIN users ON teachers.teacher_id = users.user_id
+      LEFT JOIN classrooms c ON c.teacher_id = teachers.teacher_id
+      WHERE ${status ? sql`teachers.status = ${status}` : sql`TRUE`}
+      ${classroom ? sql`AND c.name = ${classroom}` : sql``}
+      GROUP BY teachers.teacher_id, users.full_name, users.email, users.phone, users.created_at
+      ORDER BY users.created_at DESC
+      LIMIT ${limit} OFFSET ${offset}
+    `;
+    
     if (results.length === 0) {
       return res.status(404).json({
         message: 'No teachers found with the given criteria',
@@ -287,9 +296,9 @@ export const getFilterdTeacherList = async (req, res, next) => {
         totalCount: 0,
       });
     }
-
+    
     const totalCount = results[0].total_count;
-
+    
     res.status(200).json({
       message: 'Teachers retrieved successfully',
       data: results,
