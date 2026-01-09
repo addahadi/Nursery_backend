@@ -86,3 +86,12 @@ export const AdminLoginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6),
 });
+
+
+export const EditAdminSchema = z.object({
+  full_name: z.string().min(2).max(100).optional(),
+  email: z.string().email().optional(),
+  phone: z.string().min(10).max(15).optional(),
+})
+ 
+
