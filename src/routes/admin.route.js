@@ -24,6 +24,7 @@ import {
   CreateTeacherSchema,
   EditClassRoomSchema,
   EditTeacherSchema,
+  EditAdminSchema,
   FilteredParentListSchema,
   FilteredTeacherListSchema,
   getPaymentsListSchema,
