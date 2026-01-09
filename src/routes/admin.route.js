@@ -15,6 +15,7 @@ import {
   getParentsSubscriptions,
   rejectParentRegistration,
   viewClassRooms,
+  editAdmin
 } from '../controllers/admin.controller.js';
 import { validate } from '../middlewares/validate.js';
 import {
@@ -86,5 +87,9 @@ router.get("/website" , getWebsiteContent)
 router.put('/website/:section/:id' , updateWebsiteContent);
 router.get('/classroom', requireAdmin, viewClassRooms);
 router.get('/payments', requireAdmin, validate(getPaymentsListSchema, 'query'), getParentsSubscriptions);
+
+router.put("/:id" ,  requireAdmin ,   validate(ValidateUserIdSchema, 'params'), validate(EditAdminSchema) ,  editAdmin)
+
+
 
 export default router;
