@@ -4,48 +4,74 @@ import bcrypt from 'bcrypt';
 import stripe from '../config/stripe.js';
 import { sendParentApprovalEmail } from '../config/createEmail.js';
 
+
 export const approveParentRegistration = async (req, res, next) => {
   const { id } = req.params;
+  console.log('[DEBUG] Starting approveParentRegistration for ID:', id);
+
   try {
+    console.log('[DEBUG] Fetching parent from DB...');
     const [parent] = await sql`
-        SELECT users.* , p.status 
-        FROM users  
-        JOIN parents p ON p.parent_id = users.user_id
-        WHERE users.user_id = ${id}
-        `;
+      SELECT users.*, p.status
+      FROM users
+      JOIN parents p ON p.parent_id = users.user_id
+      WHERE users.user_id = ${id}
+    `;
+    console.log('[DEBUG] Parent fetched:', parent);
+
     if (!parent) {
-      return res.status(404).json({
-        message: 'Parent not found',
-      });
+      console.log('[DEBUG] Parent not found, sending 404');
+      return res.status(404).json({ message: 'Parent not found' });
     }
 
     if (parent.status !== 'PENDING_REVIEW') {
-      return res.status(400).json({
-        message: `Cannot approve parent with status ${parent.status}`,
-      });
+      console.log('[DEBUG] Parent status not PENDING_REVIEW:', parent.status);
+      return res.status(400).json({ message: `Cannot approve parent with status ${parent.status}` });
     }
 
-    const customer = await stripe.customers.create({
-      email: parent.email,
-      name: parent.full_name,
-    });
+    let customer;
+    try {
+      console.log('[DEBUG] Creating Stripe customer...');
+      customer = await stripe.customers.create({
+        email: parent.email,
+        name: parent.full_name,
+      });
+      console.log('[DEBUG] Stripe customer created:', customer.id);
+    } catch (err) {
+      console.error('[ERROR] Stripe customer creation failed:', err);
+      return res.status(500).json({ message: 'Failed to create Stripe customer' });
+    }
 
-    await sql`
-        UPDATE parents SET status = 'APPROVED_AWAITING_PAYMENT', stripe_customer_id = ${customer.id} WHERE parent_id = ${id}
-        `;
+    try {
+      console.log('[DEBUG] Updating parent status in DB...');
+      await sql`
+        UPDATE parents
+        SET status = 'APPROVED_AWAITING_PAYMENT', stripe_customer_id = ${customer.id}
+        WHERE parent_id = ${id}
+      `;
+      console.log('[DEBUG] Parent status updated in DB');
+    } catch (err) {
+      console.error('[ERROR] DB update failed:', err);
+      return res.status(500).json({ message: 'Failed to update parent status in DB' });
+    }
 
-    await sendParentApprovalEmail({
-      email: parent.email,
-      fullName: parent.full_name,
-    });
+    try {
+      console.log('[DEBUG] Sending approval email...');
+      await sendParentApprovalEmail({ email: parent.email, fullName: parent.full_name });
+      console.log('[DEBUG] Approval email sent');
+    } catch (err) {
+      console.error('[ERROR] Sending email failed:', err);
+      // Do not block the response
+    }
 
-    res.status(200).json({
-      message: 'Parent registration approved successfully',
-    });
+    console.log('[DEBUG] Sending final response to frontend');
+    res.status(200).json({ message: 'Parent registration approved successfully' });
   } catch (error) {
+    console.error('[ERROR] Controller caught an unexpected error:', error);
     next(error);
   }
 };
+
 
 export const rejectParentRegistration = async (req, res, next) => {
   const { id } = req.params;
