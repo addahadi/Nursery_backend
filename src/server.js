@@ -1,5 +1,5 @@
 import dotenv from 'dotenv/config.js';
-import transporter from './utils/email.js'
+import {transporter} from './utils/email.js'
 import app from './app.js';
 const PORT = process.env.PORT || 5000;
 
