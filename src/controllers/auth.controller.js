@@ -66,6 +66,7 @@ export const Login = async (req, res, next) => {
         full_name: user[0].full_name,
         email: user[0].email,
         role: user[0].role,
+        phone : user[0].phone,
         status: Status,
       },
     });
@@ -97,9 +98,10 @@ export const getMe = async (req, res, next) => {
       success: true,
       user: {
         id: result[0].id,
-        name : result[0].full_name,
+        full_name : result[0].full_name,
         email: result[0].email,
         role: result[0].role,
+        phone : result[0].phone,
         status: result[0].status,
       },
     });
